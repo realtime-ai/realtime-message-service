@@ -16,7 +16,7 @@
 ### 后端
 - Node.js + Express + TypeScript
 - JWT 认证
-- Centrifugo Server API 集成
+- Centrifugo Proxy 回调
 
 ### 前端
 - React 18 + TypeScript
@@ -33,21 +33,27 @@
 centrifuge-realtime-message-play/
 ├── docs/
 │   └── DESIGN.md          # 详细设计文档
-├── backend/               # 后端服务 (Node.js)
-├── frontend/              # 前端应用 (React)
-├── centrifugo/           # Centrifugo 配置
-└── docker-compose.yml    # Docker 编排
+├── backend/               # 后端服务 (Node.js, Port 3001)
+├── frontend/              # 前端应用 (React, Port 5173)
+└── centrifugo/            # Centrifugo 配置 (Port 8000)
 ```
 
 ## 快速开始
 
-### 1. 启动 Centrifugo
+### 1. 安装 Centrifugo
+
+从 [GitHub Releases](https://github.com/centrifugal/centrifugo/releases) 下载适合你系统的版本。
 
 ```bash
-# 下载 Centrifugo
-# https://github.com/centrifugal/centrifugo/releases
+# macOS (使用 Homebrew)
+brew install centrifugo
 
-# 使用项目配置启动
+# 或手动下载
+# Linux
+wget https://github.com/centrifugal/centrifugo/releases/download/v5.4.0/centrifugo_5.4.0_linux_amd64.tar.gz
+tar -xzf centrifugo_5.4.0_linux_amd64.tar.gz
+
+# 启动 Centrifugo (在项目根目录)
 ./centrifugo --config=centrifugo/config.json
 ```
 
@@ -57,6 +63,7 @@ centrifuge-realtime-message-play/
 cd backend
 npm install
 npm run dev
+# 服务运行在 http://localhost:3001
 ```
 
 ### 3. 启动前端
@@ -65,16 +72,56 @@ npm run dev
 cd frontend
 npm install
 npm run dev
+# 应用运行在 http://localhost:5173
 ```
+
+### 4. 使用应用
+
+1. 打开浏览器访问 http://localhost:5173
+2. 输入用户名登录
+3. 输入频道名称 (如 `general`) 加入聊天室
+4. 开始聊天!
+
+可以打开多个浏览器窗口/标签页测试多用户聊天。
 
 ## 架构概览
 
 ```
 ┌─────────────┐      WebSocket      ┌─────────────┐     HTTP Proxy     ┌─────────────┐
 │   Frontend  │ ◄─────────────────► │  Centrifugo │ ◄─────────────────► │   Backend   │
-│   (React)   │                     │   Server    │                     │  (Node.js)  │
+│   (React)   │     :5173           │   :8000     │                     │  (Node.js)  │
 └─────────────┘                     └─────────────┘                     └─────────────┘
+                                          │                                   :3001
+                                          │
+                              ┌───────────┴───────────┐
+                              │ Proxy Endpoints:      │
+                              │ • /centrifugo/connect │
+                              │ • /centrifugo/subscribe│
+                              │ • /centrifugo/publish │
+                              └───────────────────────┘
 ```
+
+## Centrifugo 配置说明
+
+配置文件位于 `centrifugo/config.json`:
+
+- **Proxy 端点**: 连接、订阅、发布事件都会回调到后端处理
+- **chat 命名空间**:
+  - `presence`: 启用在线用户列表
+  - `join_leave`: 启用加入/离开通知
+  - `history_size/ttl`: 消息历史配置
+
+## API 端点
+
+### 后端 REST API
+
+- `POST /api/auth/login` - 用户登录 (仅需用户名)
+
+### Centrifugo Proxy 端点
+
+- `POST /centrifugo/connect` - 处理连接请求
+- `POST /centrifugo/subscribe` - 处理订阅请求
+- `POST /centrifugo/publish` - 处理消息发布
 
 ## 设计文档
 
