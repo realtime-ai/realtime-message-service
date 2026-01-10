@@ -1,131 +1,197 @@
-# Centrifuge 实时消息聊天室
+# Centrifuge Realtime Message
 
-基于 [Centrifugo](https://centrifugal.dev/) 构建的实时聊天室应用，支持多频道聊天、在线用户列表、消息历史等功能。
+[![CI](https://github.com/realtime-ai/centrifuge-realtime-message/actions/workflows/ci.yml/badge.svg)](https://github.com/realtime-ai/centrifuge-realtime-message/actions/workflows/ci.yml)
 
-## 功能特性
+A production-ready real-time messaging application built with Clean Architecture principles.
 
-- 实时消息发送与接收
-- 多聊天频道 (Channel) 支持
-- 用户加入/离开频道的实时通知
-- 在线用户列表 (Presence)
-- 消息历史记录
-- 用户认证 (JWT)
+## Tech Stack
 
-## 技术栈
+- **Backend**: Cloudflare Workers + Hono (TypeScript)
+- **Realtime**: Centrifugo (WebSocket server on Fly.io)
+- **Frontend**: React + Vite + TailwindCSS
 
-### 后端
-- Node.js + Express + TypeScript
-- JWT 认证
-- Centrifugo Proxy 回调
-
-### 前端
-- React 18 + TypeScript
-- Vite 构建工具
-- Tailwind CSS
-- centrifuge-js SDK
-
-### 实时服务
-- Centrifugo v5.x
-
-## 项目结构
+## Architecture
 
 ```
-centrifuge-realtime-message-play/
-├── docs/
-│   └── DESIGN.md          # 详细设计文档
-├── backend/               # 后端服务 (Node.js, Port 3001)
-├── frontend/              # 前端应用 (React, Port 5173)
-└── centrifugo/            # Centrifugo 配置 (Port 8000)
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Frontend  │────▶│  Centrifugo  │────▶│   Workers    │
+│   (React)   │◀────│  (Fly.io)    │◀────│ (Cloudflare) │
+└─────────────┘     └──────────────┘     └──────────────┘
 ```
 
-## 快速开始
+### Project Structure
 
-### 1. 安装 Centrifugo
+```
+├── packages/
+│   ├── shared/          # Shared domain entities and types
+│   ├── workers/         # Cloudflare Workers backend (Clean Architecture)
+│   │   ├── src/
+│   │   │   ├── core/
+│   │   │   │   ├── ports/       # Interface definitions
+│   │   │   │   └── use-cases/   # Business logic
+│   │   │   ├── adapters/
+│   │   │   │   ├── controllers/ # HTTP handlers
+│   │   │   │   ├── repositories/# Data access
+│   │   │   │   └── services/    # External services
+│   │   │   └── infrastructure/  # DI container, entry point
+│   │   └── wrangler.toml
+│   └── centrifugo/      # Centrifugo configuration for Fly.io
+├── frontend/            # React frontend application
+└── docs/                # System design documentation
+```
 
-从 [GitHub Releases](https://github.com/centrifugal/centrifugo/releases) 下载适合你系统的版本。
+## Quick Start
+
+### Prerequisites
+
+- Node.js >= 20.0.0
+- npm >= 10.0.0
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
+- [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) (for Centrifugo deployment)
+
+### Development Setup
+
+1. **Clone and install dependencies**:
+
+   ```bash
+   git clone https://github.com/realtime-ai/centrifuge-realtime-message.git
+   cd centrifuge-realtime-message
+   npm install
+   ```
+
+2. **Set up environment variables**:
+
+   ```bash
+   # Frontend
+   cp frontend/.env.example frontend/.env
+
+   # Workers (for local development, create .dev.vars)
+   echo "JWT_SECRET=your-jwt-secret" > packages/workers/.dev.vars
+   echo "CENTRIFUGO_SECRET=your-centrifugo-secret" >> packages/workers/.dev.vars
+   ```
+
+3. **Download Centrifugo binary** (for local development):
+
+   ```bash
+   mkdir -p centrifugo-bin
+   # macOS ARM64
+   curl -L https://github.com/centrifugal/centrifugo/releases/download/v5.4.8/centrifugo_5.4.8_darwin_arm64.tar.gz | tar xz -C centrifugo-bin/
+   ```
+
+4. **Start all services**:
+
+   ```bash
+   npm run dev
+   ```
+
+   This starts:
+   - Workers API: http://localhost:8787
+   - Centrifugo: http://localhost:8000
+   - Frontend: http://localhost:5173
+
+## Scripts
+
+| Command                  | Description                        |
+| ------------------------ | ---------------------------------- |
+| `npm run dev`            | Start all services for development |
+| `npm run build`          | Build all packages                 |
+| `npm run test`           | Run all tests                      |
+| `npm run test:coverage`  | Run tests with coverage            |
+| `npm run lint`           | Lint all files                     |
+| `npm run lint:fix`       | Fix linting issues                 |
+| `npm run format`         | Format all files                   |
+| `npm run format:check`   | Check formatting                   |
+| `npm run typecheck`      | Type check all packages            |
+| `npm run deploy:workers` | Deploy to Cloudflare Workers       |
+
+## Deployment
+
+### Cloudflare Workers
+
+1. **Set secrets**:
+
+   ```bash
+   cd packages/workers
+   wrangler secret put JWT_SECRET
+   wrangler secret put CENTRIFUGO_SECRET
+   ```
+
+2. **Deploy**:
+
+   ```bash
+   npm run deploy:workers
+   ```
+
+### Centrifugo (Fly.io)
+
+1. **Create app**:
+
+   ```bash
+   cd packages/centrifugo
+   fly launch --no-deploy
+   ```
+
+2. **Set secrets**:
+
+   ```bash
+   fly secrets set CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=your-secret
+   fly secrets set PROXY_CONNECT_ENDPOINT=https://your-worker.workers.dev/centrifugo/connect
+   fly secrets set PROXY_SUBSCRIBE_ENDPOINT=https://your-worker.workers.dev/centrifugo/subscribe
+   fly secrets set PROXY_PUBLISH_ENDPOINT=https://your-worker.workers.dev/centrifugo/publish
+   ```
+
+3. **Deploy**:
+
+   ```bash
+   fly deploy
+   ```
+
+## API Endpoints
+
+### Authentication
+
+| Method | Endpoint      | Description         |
+| ------ | ------------- | ------------------- |
+| POST   | `/auth/login` | Login with username |
+
+### Centrifugo Proxy
+
+| Method | Endpoint                | Description                   |
+| ------ | ----------------------- | ----------------------------- |
+| POST   | `/centrifugo/connect`   | Handle client connection      |
+| POST   | `/centrifugo/subscribe` | Validate channel subscription |
+| POST   | `/centrifugo/publish`   | Process message publication   |
+
+### Health Check
+
+| Method | Endpoint  | Description          |
+| ------ | --------- | -------------------- |
+| GET    | `/health` | Check service health |
+
+## Testing
 
 ```bash
-# macOS (使用 Homebrew)
-brew install centrifugo
+# Run all tests
+npm run test
 
-# 或手动下载
-# Linux
-wget https://github.com/centrifugal/centrifugo/releases/download/v5.4.0/centrifugo_5.4.0_linux_amd64.tar.gz
-tar -xzf centrifugo_5.4.0_linux_amd64.tar.gz
+# Run tests with coverage
+npm run test:coverage
 
-# 启动 Centrifugo (在项目根目录)
-./centrifugo --config=centrifugo/config.json
+# Run tests in watch mode
+npm run test -w @centrifuge-realtime-message/shared -- --watch
 ```
 
-### 2. 启动后端
+## Design Documentation
 
-```bash
-cd backend
-npm install
-npm run dev
-# 服务运行在 http://localhost:3001
-```
+For detailed system design, see [docs/DESIGN.md](docs/DESIGN.md)
 
-### 3. 启动前端
+## Contributing
 
-```bash
-cd frontend
-npm install
-npm run dev
-# 应用运行在 http://localhost:5173
-```
-
-### 4. 使用应用
-
-1. 打开浏览器访问 http://localhost:5173
-2. 输入用户名登录
-3. 输入频道名称 (如 `general`) 加入聊天室
-4. 开始聊天!
-
-可以打开多个浏览器窗口/标签页测试多用户聊天。
-
-## 架构概览
-
-```
-┌─────────────┐      WebSocket      ┌─────────────┐     HTTP Proxy     ┌─────────────┐
-│   Frontend  │ ◄─────────────────► │  Centrifugo │ ◄─────────────────► │   Backend   │
-│   (React)   │     :5173           │   :8000     │                     │  (Node.js)  │
-└─────────────┘                     └─────────────┘                     └─────────────┘
-                                          │                                   :3001
-                                          │
-                              ┌───────────┴───────────┐
-                              │ Proxy Endpoints:      │
-                              │ • /centrifugo/connect │
-                              │ • /centrifugo/subscribe│
-                              │ • /centrifugo/publish │
-                              └───────────────────────┘
-```
-
-## Centrifugo 配置说明
-
-配置文件位于 `centrifugo/config.json`:
-
-- **Proxy 端点**: 连接、订阅、发布事件都会回调到后端处理
-- **chat 命名空间**:
-  - `presence`: 启用在线用户列表
-  - `join_leave`: 启用加入/离开通知
-  - `history_size/ttl`: 消息历史配置
-
-## API 端点
-
-### 后端 REST API
-
-- `POST /api/auth/login` - 用户登录 (仅需用户名)
-
-### Centrifugo Proxy 端点
-
-- `POST /centrifugo/connect` - 处理连接请求
-- `POST /centrifugo/subscribe` - 处理订阅请求
-- `POST /centrifugo/publish` - 处理消息发布
-
-## 设计文档
-
-详细的系统设计请查看 [docs/DESIGN.md](docs/DESIGN.md)
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 

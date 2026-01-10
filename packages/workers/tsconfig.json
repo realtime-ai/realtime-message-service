@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@centrifuge-chat/shared": ["../shared/src"],
+      "@centrifuge-chat/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}

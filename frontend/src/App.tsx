@@ -68,11 +68,7 @@ function App() {
   }
 
   return (
-    <ChatRoom
-      user={auth.user}
-      centrifugoToken={auth.centrifugoToken}
-      onLogout={handleLogout}
-    />
+    <ChatRoom user={auth.user} centrifugoToken={auth.centrifugoToken} onLogout={handleLogout} />
   );
 }
 

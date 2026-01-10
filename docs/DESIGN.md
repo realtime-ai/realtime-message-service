@@ -3,6 +3,7 @@
 ## 1. 项目概述
 
 基于 [Centrifugo](https://centrifugal.dev/) 构建的实时聊天室应用，支持：
+
 - 多聊天室 (Channel) 管理
 - 用户加入/离开聊天室的实时通知
 - 实时消息发送和接收
@@ -179,6 +180,7 @@
 ### 4.1 REST API
 
 #### 用户认证
+
 ```
 POST /api/auth/login
 Request:  { "username": "string", "password": "string" }
@@ -190,6 +192,7 @@ Response: { "token": "jwt-token", "user": { "id": "string", "name": "string" } }
 ```
 
 #### 频道管理
+
 ```
 GET /api/channels
 Response: { "channels": [{ "id": "string", "name": "string", "description": "string" }] }
@@ -205,6 +208,7 @@ Response: { "messages": [{ "id": "string", "content": "string", "user": {...}, "
 ### 4.2 Centrifugo Proxy Endpoints
 
 #### Connect Proxy
+
 ```
 POST /centrifugo/connect
 Request (from Centrifugo):
@@ -228,6 +232,7 @@ Response:
 ```
 
 #### Subscribe Proxy
+
 ```
 POST /centrifugo/subscribe
 Request (from Centrifugo):
@@ -252,6 +257,7 @@ Response:
 ```
 
 #### Publish Proxy
+
 ```
 POST /centrifugo/publish
 Request (from Centrifugo):
@@ -276,6 +282,7 @@ Response:
 ```
 
 #### RPC Proxy
+
 ```
 POST /centrifugo/rpc
 Request (from Centrifugo):
@@ -459,6 +466,7 @@ centrifuge-realtime-message-play/
 ## 7. 技术栈
 
 ### 后端
+
 - **运行时**: Node.js 20+
 - **框架**: Express.js
 - **语言**: TypeScript
@@ -467,6 +475,7 @@ centrifuge-realtime-message-play/
 - **UUID**: uuid (生成消息ID)
 
 ### 前端
+
 - **框架**: React 18+
 - **构建工具**: Vite
 - **语言**: TypeScript
@@ -475,28 +484,31 @@ centrifuge-realtime-message-play/
 - **Centrifuge SDK**: centrifuge (官方 JS 客户端)
 
 ### 实时服务
+
 - **Centrifugo**: v5.x
 
 ## 8. 消息格式定义
 
 ### 聊天消息
+
 ```typescript
 interface ChatMessage {
-  id: string;              // UUID
-  channel: string;         // 频道名称
+  id: string; // UUID
+  channel: string; // 频道名称
   type: 'text' | 'image' | 'system';
-  content: string;         // 消息内容
+  content: string; // 消息内容
   user: {
     id: string;
     name: string;
     avatar?: string;
   };
-  timestamp: string;       // ISO 8601 格式
+  timestamp: string; // ISO 8601 格式
   metadata?: Record<string, any>;
 }
 ```
 
 ### Join/Leave 事件
+
 ```typescript
 interface JoinLeaveEvent {
   type: 'join' | 'leave';
@@ -510,10 +522,11 @@ interface JoinLeaveEvent {
 ```
 
 ### Presence 数据
+
 ```typescript
 interface PresenceInfo {
-  client: string;          // Centrifugo client ID
-  user: string;            // 用户 ID
+  client: string; // Centrifugo client ID
+  user: string; // 用户 ID
   connInfo: {
     name: string;
     avatar?: string;
@@ -534,6 +547,7 @@ interface PresenceInfo {
 ## 10. 部署架构
 
 ### 开发环境
+
 ```
 前端开发服务器 (localhost:3000)
        │
@@ -545,6 +559,7 @@ Centrifugo (localhost:8000)
 ```
 
 ### 生产环境
+
 ```
                     ┌─────────────────┐
                     │   Load Balancer │

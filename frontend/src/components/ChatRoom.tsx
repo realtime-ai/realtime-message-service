@@ -27,11 +27,7 @@ export function ChatRoom({ user, centrifugoToken, onLogout }: ChatRoomProps) {
     userName: user.name,
   });
 
-  const connectionStatus = connecting
-    ? 'Connecting...'
-    : connected
-    ? 'Connected'
-    : 'Disconnected';
+  const connectionStatus = connecting ? 'Connecting...' : connected ? 'Connected' : 'Disconnected';
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">

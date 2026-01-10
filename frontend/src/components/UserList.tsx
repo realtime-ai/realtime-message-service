@@ -13,15 +13,11 @@ export function UserList({ users, currentUserId }: UserListProps) {
   return (
     <div className="w-64 bg-gray-50 border-l border-gray-200 flex flex-col">
       <div className="p-4 border-b border-gray-200">
-        <h2 className="font-semibold text-gray-700">
-          Online Users ({users.length})
-        </h2>
+        <h2 className="font-semibold text-gray-700">Online Users ({users.length})</h2>
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         {users.length === 0 ? (
-          <div className="text-gray-400 text-sm text-center py-4">
-            No users online
-          </div>
+          <div className="text-gray-400 text-sm text-center py-4">No users online</div>
         ) : (
           <ul className="space-y-1">
             {users.map((user) => {
@@ -34,7 +30,9 @@ export function UserList({ users, currentUserId }: UserListProps) {
                   }`}
                 >
                   <span className="w-2 h-2 bg-green-500 rounded-full" />
-                  <span className={`text-sm ${isCurrentUser ? 'font-semibold text-blue-600' : 'text-gray-700'}`}>
+                  <span
+                    className={`text-sm ${isCurrentUser ? 'font-semibold text-blue-600' : 'text-gray-700'}`}
+                  >
                     {getUserName(user)}
                     {isCurrentUser && ' (you)'}
                   </span>

@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Centrifuge, Subscription, PublicationContext, JoinContext, LeaveContext, PresenceResult } from 'centrifuge';
+import {
+  Centrifuge,
+  Subscription,
+  PublicationContext,
+  JoinContext,
+  LeaveContext,
+  PresenceResult,
+} from 'centrifuge';
 import { ChatMessage, PresenceInfo } from '../types';
 
-const CENTRIFUGO_URL = 'ws://localhost:8000/connection/websocket';
+const CENTRIFUGO_URL =
+  import.meta.env.VITE_CENTRIFUGO_URL || 'ws://localhost:8000/connection/websocket';
 
 interface UseCentrifugeOptions {
   token: string;
@@ -39,7 +47,8 @@ export function useCentrifuge({ token, userName }: UseCentrifugeOptions): UseCen
     const client = new Centrifuge(CENTRIFUGO_URL, {
       token,
       data: {
-        name: userName,
+        userId: '', // Will be extracted from token by backend
+        userName: userName,
       },
     });
 
@@ -76,90 +85,93 @@ export function useCentrifuge({ token, userName }: UseCentrifugeOptions): UseCen
   }, [token, userName]);
 
   // Join a channel
-  const joinChannel = useCallback((channelName: string) => {
-    const client = clientRef.current;
-    if (!client || !connected) {
-      setError('Not connected to server');
-      return;
-    }
-
-    // Leave current channel if any
-    if (subscriptionRef.current) {
-      subscriptionRef.current.unsubscribe();
-      subscriptionRef.current = null;
-    }
-
-    // Reset state
-    setMessages([]);
-    setUsers([]);
-    setError(null);
-
-    const fullChannelName = `chat:${channelName}`;
-    const sub = client.newSubscription(fullChannelName);
-
-    sub.on('subscribed', async (ctx) => {
-      console.log('Subscribed to channel:', fullChannelName, ctx);
-      setCurrentChannel(channelName);
-
-      // Get presence (online users)
-      try {
-        const presence: PresenceResult = await sub.presence();
-        const userList = Object.values(presence.clients) as PresenceInfo[];
-        setUsers(userList);
-      } catch (err) {
-        console.error('Failed to get presence:', err);
+  const joinChannel = useCallback(
+    (channelName: string) => {
+      const client = clientRef.current;
+      if (!client || !connected) {
+        setError('Not connected to server');
+        return;
       }
 
-      // Get history
-      try {
-        const history = await sub.history({ limit: 50 });
-        const historyMessages = history.publications
-          .map((pub) => pub.data as ChatMessage)
-          .filter((msg) => msg && msg.id);
-        setMessages(historyMessages);
-      } catch (err) {
-        console.error('Failed to get history:', err);
+      // Leave current channel if any
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
       }
-    });
 
-    sub.on('publication', (ctx: PublicationContext) => {
-      console.log('New message:', ctx.data);
-      const message = ctx.data as ChatMessage;
-      if (message && message.id) {
-        setMessages((prev) => [...prev, message]);
-      }
-    });
+      // Reset state
+      setMessages([]);
+      setUsers([]);
+      setError(null);
 
-    sub.on('join', (ctx: JoinContext) => {
-      console.log('User joined:', ctx.info);
-      const info = ctx.info as PresenceInfo;
-      setUsers((prev) => {
-        // Avoid duplicates
-        if (prev.some((u) => u.client === info.client)) {
-          return prev;
+      const fullChannelName = `chat:${channelName}`;
+      const sub = client.newSubscription(fullChannelName);
+
+      sub.on('subscribed', async (ctx) => {
+        console.log('Subscribed to channel:', fullChannelName, ctx);
+        setCurrentChannel(channelName);
+
+        // Get presence (online users)
+        try {
+          const presence: PresenceResult = await sub.presence();
+          const userList = Object.values(presence.clients) as PresenceInfo[];
+          setUsers(userList);
+        } catch (err) {
+          console.error('Failed to get presence:', err);
         }
-        return [...prev, info];
+
+        // Get history
+        try {
+          const history = await sub.history({ limit: 50 });
+          const historyMessages = history.publications
+            .map((pub) => pub.data as ChatMessage)
+            .filter((msg) => msg && msg.id);
+          setMessages(historyMessages);
+        } catch (err) {
+          console.error('Failed to get history:', err);
+        }
       });
-    });
 
-    sub.on('leave', (ctx: LeaveContext) => {
-      console.log('User left:', ctx.info);
-      const info = ctx.info as PresenceInfo;
-      setUsers((prev) => prev.filter((u) => u.client !== info.client));
-    });
+      sub.on('publication', (ctx: PublicationContext) => {
+        console.log('New message:', ctx.data);
+        const message = ctx.data as ChatMessage;
+        if (message && message.id) {
+          setMessages((prev) => [...prev, message]);
+        }
+      });
 
-    sub.on('error', (ctx) => {
-      console.error('Subscription error:', ctx);
-      setError(ctx.error?.message || 'Subscription error');
-    });
+      sub.on('join', (ctx: JoinContext) => {
+        console.log('User joined:', ctx.info);
+        const info = ctx.info as PresenceInfo;
+        setUsers((prev) => {
+          // Avoid duplicates
+          if (prev.some((u) => u.client === info.client)) {
+            return prev;
+          }
+          return [...prev, info];
+        });
+      });
 
-    sub.on('unsubscribed', () => {
-      console.log('Unsubscribed from channel');
-    });
+      sub.on('leave', (ctx: LeaveContext) => {
+        console.log('User left:', ctx.info);
+        const info = ctx.info as PresenceInfo;
+        setUsers((prev) => prev.filter((u) => u.client !== info.client));
+      });
 
-    sub.subscribe();
-    subscriptionRef.current = sub;
-  }, [connected]);
+      sub.on('error', (ctx) => {
+        console.error('Subscription error:', ctx);
+        setError(ctx.error?.message || 'Subscription error');
+      });
+
+      sub.on('unsubscribed', () => {
+        console.log('Unsubscribed from channel');
+      });
+
+      sub.subscribe();
+      subscriptionRef.current = sub;
+    },
+    [connected]
+  );
 
   // Leave current channel
   const leaveChannel = useCallback(() => {

@@ -1,0 +1,7 @@
+node_modules
+dist
+.wrangler
+coverage
+centrifugo-bin
+package-lock.json
+*.log

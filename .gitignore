@@ -140,3 +140,7 @@ vite.config.ts.timestamp-*
 
 # Centrifugo binary
 centrifugo-bin/
+
+# Cloudflare Workers
+.wrangler/
+.dev.vars
