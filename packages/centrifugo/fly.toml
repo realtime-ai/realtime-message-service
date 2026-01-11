@@ -1,7 +1,7 @@
 # Fly.io configuration for Centrifugo
 # Deploy with: fly deploy
 
-app = "centrifuge-chat-realtime"
+app = "centrifuge-realtime-message"
 primary_region = "sin"
 
 [build]
