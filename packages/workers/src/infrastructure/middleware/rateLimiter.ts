@@ -21,10 +21,15 @@ interface RateLimitEntry {
 
 // In-memory store (per worker instance)
 const rateLimitStore = new Map<string, RateLimitEntry>();
+let lastCleanup = 0;
 
-// Clean up expired entries periodically
+// Clean up expired entries (called inline, not via setInterval)
 function cleanupExpiredEntries(): void {
   const now = Date.now();
+  // Only cleanup every 60 seconds
+  if (now - lastCleanup < 60000) return;
+  lastCleanup = now;
+
   for (const [key, entry] of rateLimitStore.entries()) {
     if (entry.resetTime < now) {
       rateLimitStore.delete(key);
@@ -32,13 +37,13 @@ function cleanupExpiredEntries(): void {
   }
 }
 
-// Run cleanup every 60 seconds
-setInterval(cleanupExpiredEntries, 60000);
-
 export function rateLimiter(config: RateLimitConfig) {
   const { windowMs, maxRequests, keyGenerator } = config;
 
   return async (c: Context, next: Next) => {
+    // Cleanup expired entries periodically
+    cleanupExpiredEntries();
+
     // Generate rate limit key (default: IP-based)
     const key = keyGenerator
       ? keyGenerator(c)

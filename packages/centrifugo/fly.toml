@@ -1,15 +1,21 @@
 # Fly.io configuration for Centrifugo
-# Deploy with: fly deploy --app <your-app-name>
+# Deploy with: fly deploy
 
 app = "centrifuge-chat-realtime"
-primary_region = "hkg"
+primary_region = "sin"
 
 [build]
-  dockerfile = "Dockerfile"
+  image = "centrifugo/centrifugo:v5"
 
 [env]
+  CENTRIFUGO_PORT = "8000"
   CENTRIFUGO_HEALTH = "true"
   CENTRIFUGO_LOG_LEVEL = "info"
+  CENTRIFUGO_ALLOWED_ORIGINS = "*"
+  CENTRIFUGO_PROXY_CONNECT_TIMEOUT = "5s"
+  CENTRIFUGO_PROXY_SUBSCRIBE_TIMEOUT = "5s"
+  CENTRIFUGO_PROXY_PUBLISH_TIMEOUT = "5s"
+  CENTRIFUGO_NAMESPACES = '[{"name":"chat","presence":true,"join_leave":true,"history_size":100,"history_ttl":"60s","force_recovery":false,"proxy_subscribe":true,"proxy_publish":true}]'
 
 [http_service]
   internal_port = 8000
