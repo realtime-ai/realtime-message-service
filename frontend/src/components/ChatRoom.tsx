@@ -8,10 +8,11 @@ import { UserList } from './UserList';
 interface ChatRoomProps {
   user: User;
   centrifugoToken: string;
+  centrifugoUrl: string;
   onLogout: () => void;
 }
 
-export function ChatRoom({ user, centrifugoToken, onLogout }: ChatRoomProps) {
+export function ChatRoom({ user, centrifugoToken, centrifugoUrl, onLogout }: ChatRoomProps) {
   const {
     connected,
     connecting,
@@ -25,6 +26,7 @@ export function ChatRoom({ user, centrifugoToken, onLogout }: ChatRoomProps) {
   } = useCentrifuge({
     token: centrifugoToken,
     userName: user.name,
+    centrifugoUrl,
   });
 
   const connectionStatus = connecting ? 'Connecting...' : connected ? 'Connected' : 'Disconnected';

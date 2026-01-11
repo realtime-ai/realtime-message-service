@@ -9,12 +9,10 @@ import {
 } from 'centrifuge';
 import { ChatMessage, PresenceInfo } from '../types';
 
-const CENTRIFUGO_URL =
-  import.meta.env.VITE_CENTRIFUGO_URL || 'ws://localhost:8000/connection/websocket';
-
 interface UseCentrifugeOptions {
   token: string;
   userName: string;
+  centrifugoUrl: string;
 }
 
 interface UseCentrifugeReturn {
@@ -29,7 +27,11 @@ interface UseCentrifugeReturn {
   sendMessage: (text: string) => Promise<void>;
 }
 
-export function useCentrifuge({ token, userName }: UseCentrifugeOptions): UseCentrifugeReturn {
+export function useCentrifuge({
+  token,
+  userName,
+  centrifugoUrl,
+}: UseCentrifugeOptions): UseCentrifugeReturn {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +44,9 @@ export function useCentrifuge({ token, userName }: UseCentrifugeOptions): UseCen
 
   // Initialize Centrifuge client
   useEffect(() => {
-    if (!token) return;
+    if (!token || !centrifugoUrl) return;
 
-    const client = new Centrifuge(CENTRIFUGO_URL, {
+    const client = new Centrifuge(centrifugoUrl, {
       token,
       data: {
         userId: '', // Will be extracted from token by backend
@@ -82,7 +84,7 @@ export function useCentrifuge({ token, userName }: UseCentrifugeOptions): UseCen
       client.disconnect();
       clientRef.current = null;
     };
-  }, [token, userName]);
+  }, [token, userName, centrifugoUrl]);
 
   // Join a channel
   const joinChannel = useCallback(

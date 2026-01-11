@@ -3,6 +3,8 @@ import { User } from './types';
 import { login } from './services/api';
 import { LoginForm } from './components/LoginForm';
 import { ChatRoom } from './components/ChatRoom';
+import { EnvSelector, EnvInfo } from './components/EnvSelector';
+import { configService, ENVIRONMENTS } from './services/config';
 
 interface AuthState {
   user: User | null;
@@ -20,6 +22,7 @@ function App() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentEnv, setCurrentEnv] = useState(configService.getEnv());
 
   // Load auth from localStorage on mount
   useEffect(() => {
@@ -33,6 +36,15 @@ function App() {
       }
     }
   }, []);
+
+  const handleEnvChange = (env: string) => {
+    configService.setEnv(env);
+    setCurrentEnv(env);
+    // Logout when environment changes to avoid token mismatch
+    if (auth.user) {
+      handleLogout();
+    }
+  };
 
   const handleLogin = async (username: string) => {
     setLoading(true);
@@ -63,12 +75,31 @@ function App() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
+  const envConfig = ENVIRONMENTS[currentEnv];
+
   if (!auth.user || !auth.centrifugoToken) {
-    return <LoginForm onLogin={handleLogin} loading={loading} error={error} />;
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        <div className="absolute top-4 right-4">
+          <EnvSelector currentEnv={currentEnv} onEnvChange={handleEnvChange} disabled={loading} />
+        </div>
+        <LoginForm onLogin={handleLogin} loading={loading} error={error} />
+      </div>
+    );
   }
 
   return (
-    <ChatRoom user={auth.user} centrifugoToken={auth.centrifugoToken} onLogout={handleLogout} />
+    <div className="h-screen flex flex-col">
+      <ChatRoom
+        user={auth.user}
+        centrifugoToken={auth.centrifugoToken}
+        centrifugoUrl={envConfig.centrifugoUrl}
+        onLogout={handleLogout}
+      />
+      <div className="absolute bottom-4 right-4">
+        <EnvInfo config={envConfig} />
+      </div>
+    </div>
   );
 }
 
