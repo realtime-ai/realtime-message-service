@@ -20,7 +20,11 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
     "typecheck": "npm run typecheck -ws --if-present",
     "prepare": "husky",
-    "deploy:workers": "npm run deploy -w @centrifuge-realtime-message/workers"
+    "deploy:workers": "npm run deploy -w @centrifuge-realtime-message/workers",
+    "loadtest": "npm run loadtest -w @centrifuge-realtime-message/loadtest",
+    "loadtest:help": "npm run loadtest:help -w @centrifuge-realtime-message/loadtest",
+    "loadtest:quick": "npm run loadtest:quick -w @centrifuge-realtime-message/loadtest",
+    "loadtest:full": "npm run loadtest:full -w @centrifuge-realtime-message/loadtest"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

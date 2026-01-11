@@ -95,17 +95,18 @@ export function rateLimiter(config: RateLimitConfig) {
 }
 
 // Pre-configured rate limiters
+// Note: Increase these limits for load testing
 export const authRateLimiter = rateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  maxRequests: 10, // 10 requests per minute
+  maxRequests: 500, // 500 requests per minute (for load testing)
 });
 
 export const apiRateLimiter = rateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  maxRequests: 100, // 100 requests per minute
+  maxRequests: 1000, // 1000 requests per minute
 });
 
 export const proxyRateLimiter = rateLimiter({
   windowMs: 1000, // 1 second
-  maxRequests: 50, // 50 requests per second (for Centrifugo proxy)
+  maxRequests: 500, // 500 requests per second (for Centrifugo proxy / load testing)
 });

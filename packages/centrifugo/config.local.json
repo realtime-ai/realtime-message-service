@@ -3,6 +3,7 @@
   "admin": true,
   "admin_password": "admin",
   "admin_secret": "admin-secret",
+  "token_hmac_secret_key": "dev-centrifugo-secret-for-local-testing",
   "log_level": "debug",
   "allowed_origins": ["*"],
   "proxy_connect_endpoint": "http://localhost:8787/centrifugo/connect",
@@ -20,7 +21,9 @@
       "history_ttl": "60s",
       "force_recovery": false,
       "proxy_subscribe": true,
-      "proxy_publish": true
+      "proxy_publish": false,
+      "publish": true,
+      "allow_publish_for_subscriber": true
     }
   ],
   "health": true
