@@ -140,8 +140,7 @@ class LoadTester {
         this.metrics.errors.set(errorKey, (this.metrics.errors.get(errorKey) || 0) + 1);
       }
 
-      // Small delay between requests to prevent overwhelming
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // No delay - test maximum throughput
     }
   }
 
@@ -315,6 +314,14 @@ async function main(): Promise<void> {
       concurrency: 100,
       rampUp: 20,
       testName: 'Stress Test (120s, 100 concurrent)',
+    };
+  } else if (args.includes('--extreme')) {
+    config = {
+      baseUrl,
+      duration: 60,
+      concurrency: 300,
+      rampUp: 10,
+      testName: 'Extreme Test (60s, 300 concurrent)',
     };
   } else {
     // Default to quick test
