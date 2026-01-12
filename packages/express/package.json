@@ -8,13 +8,19 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:pm2": "pm2 start ecosystem.config.cjs",
+    "stop:pm2": "pm2 stop ecosystem.config.cjs",
+    "restart:pm2": "pm2 restart ecosystem.config.cjs",
+    "delete:pm2": "pm2 delete ecosystem.config.cjs",
+    "logs:pm2": "pm2 logs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "loadtest:quick": "tsx src/__tests__/loadtest/runner.ts --quick",
     "loadtest:full": "tsx src/__tests__/loadtest/runner.ts --full",
-    "loadtest:stress": "tsx src/__tests__/loadtest/runner.ts --stress"
+    "loadtest:stress": "tsx src/__tests__/loadtest/runner.ts --stress",
+    "loadtest:extreme": "tsx src/__tests__/loadtest/runner.ts --extreme"
   },
   "dependencies": {
     "@centrifuge-realtime-message/shared": "*",
@@ -33,6 +39,7 @@
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^2.1.0",
+    "pm2": "^6.0.14",
     "supertest": "^7.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
