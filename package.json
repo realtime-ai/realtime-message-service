@@ -9,11 +9,13 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:workers\" \"npm run dev:centrifugo\" \"npm run dev:frontend\"",
     "dev:workers": "npm run dev -w @centrifuge-realtime-message/workers",
+    "dev:express": "npm run dev -w @centrifuge-realtime-message/express",
     "dev:centrifugo": "cd packages/centrifugo && ../../centrifugo-bin/centrifugo --config config.local.json",
     "dev:frontend": "npm run dev -w frontend",
     "build": "npm run build -ws --if-present",
     "test": "npm run test -ws --if-present",
     "test:coverage": "npm run test:coverage -ws --if-present",
+    "test:express": "npm run test -w @centrifuge-realtime-message/express",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
@@ -24,7 +26,10 @@
     "loadtest": "npm run loadtest -w @centrifuge-realtime-message/loadtest",
     "loadtest:help": "npm run loadtest:help -w @centrifuge-realtime-message/loadtest",
     "loadtest:quick": "npm run loadtest:quick -w @centrifuge-realtime-message/loadtest",
-    "loadtest:full": "npm run loadtest:full -w @centrifuge-realtime-message/loadtest"
+    "loadtest:full": "npm run loadtest:full -w @centrifuge-realtime-message/loadtest",
+    "loadtest:express:quick": "npm run loadtest:quick -w @centrifuge-realtime-message/express",
+    "loadtest:express:full": "npm run loadtest:full -w @centrifuge-realtime-message/express",
+    "loadtest:express:stress": "npm run loadtest:stress -w @centrifuge-realtime-message/express"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
