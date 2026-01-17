@@ -29,7 +29,15 @@
     "loadtest:full": "npm run loadtest:full -w @centrifuge-realtime-message/loadtest",
     "loadtest:express:quick": "npm run loadtest:quick -w @centrifuge-realtime-message/express",
     "loadtest:express:full": "npm run loadtest:full -w @centrifuge-realtime-message/express",
-    "loadtest:express:stress": "npm run loadtest:stress -w @centrifuge-realtime-message/express"
+    "loadtest:express:stress": "npm run loadtest:stress -w @centrifuge-realtime-message/express",
+    "callback-service": "npm run start -w @centrifuge-realtime-message/callback-service",
+    "callback-service:dev": "npm run dev -w @centrifuge-realtime-message/callback-service",
+    "worker": "npm run start -w @centrifuge-realtime-message/worker",
+    "worker:dev": "npm run dev -w @centrifuge-realtime-message/worker",
+    "worker:multi": "npm run start:multi -w @centrifuge-realtime-message/worker",
+    "test:partition": "npm run test -w @centrifuge-realtime-message/shared -- partition",
+    "test:publish": "npx tsx packages/worker/src/test-publisher.ts",
+    "test:monitor": "npx tsx packages/worker/src/test-monitor.ts --watch"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
