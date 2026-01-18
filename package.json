@@ -1,7 +1,7 @@
 {
   "name": "centrifuge-realtime-message",
   "version": "2.0.0",
-  "description": "Real-time messaging service with Centrifugo (Go callback) and TypeScript workers",
+  "description": "Real-time messaging service with Go gateway and TypeScript workers",
   "type": "module",
   "scripts": {
     "worker": "tsx examples/worker-simple.ts",

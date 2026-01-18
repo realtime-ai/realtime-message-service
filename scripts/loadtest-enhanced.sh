@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Enhanced Load Test Script
-# 1 Centrifugo + 4 Callback Services + 2 Workers
+# 1 Realtime Message Gateway + 4 Callback Services + 2 Workers
 # 400 channels, 10 msg/s per channel, 1KB message size
 # Total: 4000 msg/s, ~4 MB/s bandwidth
 
