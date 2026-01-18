@@ -1,0 +1,37 @@
+{
+  "name": "@realtime-ai/server-worker-sdk",
+  "version": "1.0.0",
+  "description": "Event-driven Worker SDK for realtime message processing with channel lifecycle callbacks",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "example": "tsx examples/basic-usage.ts"
+  },
+  "dependencies": {
+    "ioredis": "^5.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "realtime",
+    "worker",
+    "redis",
+    "streams",
+    "websocket",
+    "sdk"
+  ]
+}
