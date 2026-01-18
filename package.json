@@ -1,69 +1,37 @@
 {
   "name": "centrifuge-realtime-message",
   "version": "1.0.0",
-  "private": true,
-  "workspaces": [
-    "packages/*",
-    "frontend"
-  ],
+  "description": "Real-time messaging service with Centrifugo and callback handler",
+  "type": "module",
+  "main": "./src/index.ts",
   "scripts": {
-    "dev": "concurrently \"npm run dev:workers\" \"npm run dev:centrifugo\" \"npm run dev:frontend\"",
-    "dev:workers": "npm run dev -w @centrifuge-realtime-message/workers",
-    "dev:express": "npm run dev -w @centrifuge-realtime-message/express",
-    "dev:centrifugo": "cd packages/centrifugo && ../../centrifugo-bin/centrifugo --config config.local.json",
-    "dev:frontend": "npm run dev -w frontend",
-    "build": "npm run build -ws --if-present",
-    "test": "npm run test -ws --if-present",
-    "test:coverage": "npm run test:coverage -ws --if-present",
-    "test:express": "npm run test -w @centrifuge-realtime-message/express",
-    "lint": "eslint . --ext .ts,.tsx",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
-    "typecheck": "npm run typecheck -ws --if-present",
-    "prepare": "husky",
-    "deploy:workers": "npm run deploy -w @centrifuge-realtime-message/workers",
-    "loadtest": "npm run loadtest -w @centrifuge-realtime-message/loadtest",
-    "loadtest:help": "npm run loadtest:help -w @centrifuge-realtime-message/loadtest",
-    "loadtest:quick": "npm run loadtest:quick -w @centrifuge-realtime-message/loadtest",
-    "loadtest:full": "npm run loadtest:full -w @centrifuge-realtime-message/loadtest",
-    "loadtest:express:quick": "npm run loadtest:quick -w @centrifuge-realtime-message/express",
-    "loadtest:express:full": "npm run loadtest:full -w @centrifuge-realtime-message/express",
-    "loadtest:express:stress": "npm run loadtest:stress -w @centrifuge-realtime-message/express",
-    "callback-service": "npm run start -w @centrifuge-realtime-message/callback-service",
-    "callback-service:dev": "npm run dev -w @centrifuge-realtime-message/callback-service",
-    "worker": "npm run start -w @centrifuge-realtime-message/worker",
-    "worker:dev": "npm run dev -w @centrifuge-realtime-message/worker",
-    "worker:multi": "npm run start:multi -w @centrifuge-realtime-message/worker",
-    "test:partition": "npm run test -w @centrifuge-realtime-message/shared -- partition",
-    "test:publish": "npx tsx packages/worker/src/test-publisher.ts",
-    "test:monitor": "npx tsx packages/worker/src/test-monitor.ts --watch"
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "worker": "tsx examples/worker-simple.ts",
+    "loadtest": "tsx examples/loadtest/index.ts",
+    "loadtest:publish": "tsx examples/loadtest/index.ts publish",
+    "loadtest:ws": "tsx examples/loadtest/index.ts websocket"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^3.0.5",
+    "ioredis": "^5.3.2",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
+    "@types/express": "^4.17.21",
     "@types/node": "^20.10.0",
-    "concurrently": "^8.2.2",
-    "eslint": "^9.17.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react": "^7.37.0",
-    "eslint-plugin-react-hooks": "^5.0.0",
-    "globals": "^15.14.0",
-    "husky": "^9.1.0",
-    "lint-staged": "^15.2.0",
-    "prettier": "^3.4.0",
-    "typescript": "^5.3.3",
-    "typescript-eslint": "^8.18.0"
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md}": [
-      "prettier --write"
-    ]
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.2"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.0.0"
   }
 }
