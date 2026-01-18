@@ -1,6 +1,6 @@
 # Centrifuge Realtime Message
 
-实时消息服务，使用 Go 语言的 Centrifuge 库实现高性能 WebSocket 网关。
+实时消息服务，使用 Go 语言的 [Centrifuge 库](https://github.com/centrifugal/centrifuge) 实现高性能 WebSocket 网关。
 
 ## 系统架构
 
@@ -143,6 +143,21 @@ docker-compose logs -f
 | `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` | JWT 签名密钥 | - |
 | `ROUTE_CACHE_TTL` | 路由缓存 TTL | `30s` |
 | `MAX_TEXT_LENGTH` | 最大消息长度 | `5000` |
+
+### HTTP API (:3000)
+
+- `/health` - 健康检查
+
+### Metrics (:2112)
+
+- `/metrics` - Prometheus 指标
+- `/health` - 健康检查
+
+## 频道验证规则
+
+- `chat` - 全局聊天频道（所有用户可访问）
+- `chat:*` - 房间频道（所有用户可访问）
+- `user:{userId}` - 用户专属频道（仅匹配用户可访问）
 
 ## 项目结构
 
