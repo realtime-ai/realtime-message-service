@@ -99,3 +99,17 @@ npm run worker
 - Git history preserves all code - no need to keep it "just in case"
 - Dead code increases maintenance burden and confusion
 - Clean codebase is easier to understand and navigate
+
+### Documentation Sync
+
+**Critical Rule**: Keep README.md in sync with architecture changes.
+
+- **Always** update README.md when architecture changes
+- **Always** update README.md when adding/removing major components
+- **Always** update README.md when changing ports, endpoints, or configuration
+- **Always** update README.md when changing development/deployment commands
+
+**Rationale**:
+- README is the first thing users/developers see
+- Outdated documentation causes confusion and wasted time
+- Architecture changes without doc updates create knowledge gaps
