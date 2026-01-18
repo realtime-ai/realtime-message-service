@@ -2,107 +2,129 @@
 
 ## Project Overview
 
-Centrifuge Realtime Message - A production-ready real-time messaging application built with Clean Architecture.
+Centrifuge Realtime Message - A real-time messaging service combining Centrifugo WebSocket server with a callback handler service in a single Docker container.
 
 ## Architecture
 
-- **Backend**: Cloudflare Workers + Hono (TypeScript)
-- **Realtime**: Centrifugo (WebSocket server on Fly.io)
-- **Frontend**: React + Vite + TailwindCSS
+- **Centrifugo**: WebSocket server for real-time messaging (port 8000)
+- **Callback Service**: Express.js HTTP server for Centrifugo callbacks (port 3000)
+- **Redis**: External message storage via Redis Streams
 
-## Production URLs
+## Project Structure
 
-| Service              | URL                                                              |
-| -------------------- | ---------------------------------------------------------------- |
-| Workers API          | `https://centrifuge-realtime-message-api.leeoxiang.workers.dev`  |
-| Centrifugo WebSocket | `wss://centrifuge-realtime-message.fly.dev/connection/websocket` |
-| Frontend             | Deploy to Vercel/Netlify/Cloudflare Pages                        |
+```
+.
+├── Dockerfile           # Combined Docker image
+├── docker-compose.yml   # Development environment with Redis
+├── supervisord.conf     # Process management
+├── centrifugo/
+│   └── config.json      # Centrifugo configuration
+├── src/
+│   ├── index.ts         # Express server entry
+│   ├── redis.ts         # Redis client
+│   ├── config/
+│   │   └── partition.ts # Partitioning logic
+│   └── handlers/
+│       ├── connect.ts   # Connect handler
+│       ├── subscribe.ts # Subscribe handler
+│       └── publish.ts   # Publish handler
+├── package.json
+└── tsconfig.json
+```
 
 ## Environment Variables
 
-### Cloudflare Workers (`packages/workers`)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` |
+| `PORT` | Callback service port | `3000` |
+| `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` | JWT signing secret | Required |
 
-Secrets (set via `wrangler secret put <NAME>`):
-
-| Variable            | Description                                    |
-| ------------------- | ---------------------------------------------- |
-| `JWT_SECRET`        | JWT signing secret for authentication tokens   |
-| `CENTRIFUGO_SECRET` | Shared secret for Centrifugo API communication |
-
-Public vars (in `wrangler.toml`):
-
-| Variable       | Value                         |
-| -------------- | ----------------------------- |
-| `LOG_LEVEL`    | `debug` (dev) / `info` (prod) |
-| `FRONTEND_URL` | Frontend origin for CORS      |
-
-### Fly.io Centrifugo (`packages/centrifugo`)
-
-Secrets (set via `fly secrets set <NAME>=<VALUE>`):
-
-| Variable                           | Description                                                                          |
-| ---------------------------------- | ------------------------------------------------------------------------------------ |
-| `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` | Token verification secret (must match `CENTRIFUGO_SECRET`)                           |
-| `PROXY_CONNECT_ENDPOINT`           | `https://centrifuge-realtime-message-api.leeoxiang.workers.dev/centrifugo/connect`   |
-| `PROXY_SUBSCRIBE_ENDPOINT`         | `https://centrifuge-realtime-message-api.leeoxiang.workers.dev/centrifugo/subscribe` |
-| `PROXY_PUBLISH_ENDPOINT`           | `https://centrifuge-realtime-message-api.leeoxiang.workers.dev/centrifugo/publish`   |
-
-## Deployment Commands
-
-### Deploy Workers
+## Development Commands
 
 ```bash
-cd packages/workers
+# Install dependencies
+npm install
 
-# Set secrets (first time only)
-wrangler secret put JWT_SECRET
-wrangler secret put CENTRIFUGO_SECRET
-
-# Deploy
-npm run deploy:workers
-```
-
-### Deploy Centrifugo
-
-```bash
-cd packages/centrifugo
-
-# Set secrets (first time only)
-fly secrets set CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=<your-secret>
-fly secrets set PROXY_CONNECT_ENDPOINT=https://centrifuge-realtime-message-api.leeoxiang.workers.dev/centrifugo/connect
-fly secrets set PROXY_SUBSCRIBE_ENDPOINT=https://centrifuge-realtime-message-api.leeoxiang.workers.dev/centrifugo/subscribe
-fly secrets set PROXY_PUBLISH_ENDPOINT=https://centrifuge-realtime-message-api.leeoxiang.workers.dev/centrifugo/publish
-
-# Deploy
-fly deploy
-```
-
-## Local Development
-
-```bash
-# Start all services
+# Start development server
 npm run dev
 
-# Services:
-# - Workers API: http://localhost:8787
-# - Centrifugo: http://localhost:8000
-# - Frontend: http://localhost:5173
+# Build TypeScript
+npm run build
+
+# Type check
+npm run typecheck
 ```
 
-## Key Files
+## Docker Commands
 
-| Path                           | Description                             |
-| ------------------------------ | --------------------------------------- |
-| `packages/workers/src/`        | Workers backend with Clean Architecture |
-| `packages/centrifugo/fly.toml` | Centrifugo Fly.io configuration         |
-| `frontend/src/`                | React frontend application              |
-| `docs/DESIGN.md`               | System design documentation             |
-
-## Testing
+### Single Instance (Development)
 
 ```bash
-npm run test           # Run all tests
-npm run test:coverage  # Run with coverage
-npm run lint           # Lint all files
-npm run typecheck      # Type check all packages
+# Build image
+docker build -t centrifuge-realtime-message .
+
+# Run with docker-compose (includes Redis)
+docker-compose up -d
+
+# Run standalone (external Redis)
+docker run -d \
+  -p 8000:8000 \
+  -p 3000:3000 \
+  -e REDIS_URL=redis://your-redis:6379 \
+  -e CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=secret \
+  centrifuge-realtime-message
 ```
+
+### Multi-Instance (Production)
+
+Multiple Centrifugo instances can share messages through Redis Engine.
+
+```bash
+# Start multi-instance deployment (default: 2 Centrifugo + 2 Callback instances)
+docker-compose -f docker-compose.multi-instance.yml up -d
+
+# Scale Centrifugo to 3 instances
+docker-compose -f docker-compose.multi-instance.yml up -d --scale centrifugo=3
+
+# Scale Callback service to 4 instances
+docker-compose -f docker-compose.multi-instance.yml up -d --scale callback=4
+```
+
+**Architecture (Multi-Instance):**
+```
+                    ┌─────────────┐
+                    │   Nginx LB  │ :8000
+                    │  (ip_hash)  │
+                    └──────┬──────┘
+           ┌───────────────┼───────────────┐
+           ▼               ▼               ▼
+    ┌────────────┐  ┌────────────┐  ┌────────────┐
+    │Centrifugo 1│  │Centrifugo 2│  │Centrifugo 3│
+    └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
+          │               │               │
+          └───────────────┼───────────────┘
+                          │ Redis Engine
+                          ▼
+                   ┌─────────────┐
+                   │    Redis    │
+                   │  (Broker +  │
+                   │  Presence)  │
+                   └─────────────┘
+```
+
+**Key Features:**
+- **Redis Engine**: All Centrifugo instances share Pub/Sub, History, Presence via Redis
+- **Nginx ip_hash**: Same client IP always routes to same Centrifugo instance (WebSocket persistence)
+- **Horizontal Scaling**: Scale instances independently with `--scale` flag
+
+## Key Endpoints
+
+| Port | Path | Description |
+|------|------|-------------|
+| 3000 | `/centrifugo/connect` | Handle client connections |
+| 3000 | `/centrifugo/subscribe` | Handle channel subscriptions |
+| 3000 | `/centrifugo/publish` | Handle message publishing |
+| 3000 | `/health` | Callback service health check |
+| 8000 | `/connection/websocket` | WebSocket endpoint |
+| 8000 | `/health` | Centrifugo health check |
