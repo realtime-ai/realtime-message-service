@@ -58,14 +58,14 @@
 
 | 组件 | 说明 | 扩展方式 |
 |------|------|----------|
-| **Instance** | Centrifugo + Callback Service 容器 | 水平扩展，通过 LB 分发 |
+| **Instance** | Realtime Message Gateway 容器 | 水平扩展，通过 LB 分发 |
 | **Redis Streams** | 消息队列，每个 Worker 独立 Stream | 按 Worker 数量动态扩展 |
 | **Worker** | 消费消息，处理业务逻辑 | 水平扩展，使用 Sticky Channel Routing |
 
 ## 数据流
 
 ```
-Client → WebSocket → Centrifugo → Callback Service → Redis Stream → Worker
+Client → WebSocket → Realtime Message Gateway → Redis Stream → Worker
 ```
 
 ## 快速开始

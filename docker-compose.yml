@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Main application: Centrifugo + Callback Service
+  # Main application: Realtime Message Gateway
   app:
     build: .
     ports:

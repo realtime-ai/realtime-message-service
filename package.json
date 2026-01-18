@@ -1,7 +1,7 @@
 {
   "name": "centrifuge-realtime-message",
   "version": "1.0.0",
-  "description": "Real-time messaging service with Centrifugo and callback handler",
+  "description": "Realtime Message Gateway with Centrifugo WebSocket server",
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
