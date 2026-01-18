@@ -8,7 +8,8 @@
     "worker:stats": "tsx examples/worker-stats.ts",
     "loadtest": "tsx examples/loadtest/index.ts",
     "loadtest:publish": "tsx examples/loadtest/index.ts publish",
-    "loadtest:ws": "tsx examples/loadtest-websocket.ts"
+    "loadtest:ws": "tsx examples/loadtest-websocket.ts",
+    "reconnect:demo": "tsx examples/reconnect-demo.ts"
   },
   "dependencies": {
     "centrifuge": "^5.5.3",

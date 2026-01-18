@@ -49,6 +49,28 @@ var (
 		Help:      "Total WebSocket messages by direction",
 	}, []string{"direction"})
 
+	// Disconnect metrics - tracks disconnect reasons for reconnection analysis
+	DisconnectTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "gateway",
+		Name:      "disconnect_total",
+		Help:      "Total disconnections by reason code and whether it was a reconnect",
+	}, []string{"reason", "code", "reconnect"})
+
+	// Connection duration - helps understand connection stability
+	ConnectionDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "gateway",
+		Name:      "connection_duration_seconds",
+		Help:      "Duration of WebSocket connections",
+		Buckets:   []float64{1, 5, 10, 30, 60, 300, 600, 1800, 3600},
+	})
+
+	// Reconnection metrics
+	ReconnectTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "gateway",
+		Name:      "reconnect_total",
+		Help:      "Total reconnection attempts by user",
+	}, []string{"status"})
+
 	// HTTP metrics
 	HTTPRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "gateway",
