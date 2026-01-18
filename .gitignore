@@ -145,3 +145,4 @@ centrifugo-bin/
 .wrangler/
 .dev.vars
 dump.rdb
+realtime-message-gateway/realtime-message-gateway
