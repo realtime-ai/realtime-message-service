@@ -163,12 +163,13 @@ func (g *Gateway) handleConnect(client *centrifuge.Client) {
 	// Get user name from client info
 	userName := g.getUserName(client)
 
-	// Write connect event to Redis
+	// Write connect event to Redis (routed by userId for user-level tracking)
 	ctx := context.Background()
+	userChannel := "user:" + client.UserID()
 	err := g.writeEventToStream(ctx, StreamMessage{
 		ID:        uuid.New().String(),
 		Type:      EventTypeConnect,
-		Channel:   "$connections",
+		Channel:   userChannel,
 		UserID:    client.UserID(),
 		UserName:  userName,
 		ClientID:  client.ID(),
@@ -379,12 +380,13 @@ func (g *Gateway) handleDisconnect(client *centrifuge.Client, e centrifuge.Disco
 	// Get user name from client info
 	userName := g.getUserName(client)
 
-	// Write disconnect event to Redis
+	// Write disconnect event to Redis (routed by userId for user-level tracking)
 	ctx := context.Background()
+	userChannel := "user:" + client.UserID()
 	err := g.writeEventToStream(ctx, StreamMessage{
 		ID:        uuid.New().String(),
 		Type:      EventTypeDisconnect,
-		Channel:   "$connections",
+		Channel:   userChannel,
 		UserID:    client.UserID(),
 		UserName:  userName,
 		ClientID:  client.ID(),
