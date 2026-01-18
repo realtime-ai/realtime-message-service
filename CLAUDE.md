@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Centrifuge Realtime Message - A real-time messaging service combining Centrifugo WebSocket server with a callback handler service in a single Docker container.
+Centrifuge Realtime Message - A Realtime Message Gateway combining Centrifugo WebSocket server with a callback handler service in a single Docker container.
 
 ## Architecture
 
@@ -81,7 +81,7 @@ docker run -d \
 Multiple Centrifugo instances can share messages through Redis Engine.
 
 ```bash
-# Start multi-instance deployment (default: 2 Centrifugo + 2 Callback instances)
+# Start multi-instance deployment (default: 2 Realtime Message Gateway instances)
 docker-compose -f docker-compose.multi-instance.yml up -d
 
 # Scale Centrifugo to 3 instances

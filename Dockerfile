@@ -1,4 +1,4 @@
-# Multi-stage build for Centrifugo + Callback Service
+# Multi-stage build for Realtime Message Gateway
 # Stage 1: Build environment
 FROM node:18-alpine AS builder
 
@@ -61,7 +61,7 @@ ENV PORT=3000 \
 
 # Expose ports
 # 8000 - Centrifugo WebSocket
-# 3000 - Callback Service HTTP (2 instances via pm2 cluster)
+# 3000 - Realtime Message Gateway HTTP (2 instances via pm2 cluster)
 EXPOSE 8000 3000
 
 # Health check
