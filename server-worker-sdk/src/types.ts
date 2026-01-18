@@ -1,18 +1,29 @@
 import type { Redis } from 'ioredis';
 
 /**
+ * Event types from Go gateway
+ */
+export type EventType = 'publish' | 'connect' | 'disconnect' | 'subscribe';
+
+/**
  * Message format matching Go gateway StreamMessage
  */
 export interface Message {
   id: string;
-  channel: string;
+  type: EventType;
+  channel?: string;
   workerId: string;
   userId: string;
   userName: string;
-  text: string;
+  text?: string;
   timestamp: string;
-  raw: string;
+  raw?: string;
   clientId: string;
+  // Disconnect-specific fields
+  reason?: string;
+  // Connection metadata
+  transport?: string;
+  protocol?: string;
 }
 
 /**
@@ -77,6 +88,9 @@ export interface WorkerEvents {
   'channel:active': (channel: string, info: ChannelInfo) => void;
   'channel:message': (channel: string, message: Message) => void;
   'channel:inactive': (channel: string, info: ChannelInfo) => void;
+  'client:connect': (message: Message) => void;
+  'client:disconnect': (message: Message) => void;
+  'client:subscribe': (message: Message) => void;
   'worker:started': (workerId: string) => void;
   'worker:stopped': (workerId: string) => void;
   'worker:error': (error: Error) => void;
@@ -94,6 +108,15 @@ export interface WorkerCallbacks {
 
   /** Called when a channel becomes inactive (timeout or explicit removal) */
   onChannelInactive?: (channel: string, info: ChannelInfo) => void | Promise<void>;
+
+  /** Called when a client connects */
+  onClientConnect?: (message: Message) => void | Promise<void>;
+
+  /** Called when a client disconnects */
+  onClientDisconnect?: (message: Message) => void | Promise<void>;
+
+  /** Called when a client subscribes to a channel */
+  onClientSubscribe?: (message: Message) => void | Promise<void>;
 
   /** Called when worker starts */
   onWorkerStarted?: (workerId: string) => void | Promise<void>;

@@ -24,17 +24,33 @@ type Gateway struct {
 	router *routing.Router
 }
 
+// EventType represents the type of event
+type EventType string
+
+const (
+	EventTypePublish    EventType = "publish"
+	EventTypeConnect    EventType = "connect"
+	EventTypeDisconnect EventType = "disconnect"
+	EventTypeSubscribe  EventType = "subscribe"
+)
+
 // StreamMessage matches the TypeScript worker message format
 type StreamMessage struct {
-	ID        string `json:"id"`
-	Channel   string `json:"channel"`
-	WorkerID  string `json:"workerId"`
-	UserID    string `json:"userId"`
-	UserName  string `json:"userName"`
-	Text      string `json:"text"`
-	Timestamp string `json:"timestamp"`
-	Raw       string `json:"raw"`
-	ClientID  string `json:"clientId"`
+	ID        string    `json:"id"`
+	Type      EventType `json:"type"`
+	Channel   string    `json:"channel,omitempty"`
+	WorkerID  string    `json:"workerId"`
+	UserID    string    `json:"userId"`
+	UserName  string    `json:"userName"`
+	Text      string    `json:"text,omitempty"`
+	Timestamp string    `json:"timestamp"`
+	Raw       string    `json:"raw,omitempty"`
+	ClientID  string    `json:"clientId"`
+	// Disconnect-specific fields
+	Reason string `json:"reason,omitempty"`
+	// Connection metadata
+	Transport string `json:"transport,omitempty"`
+	Protocol  string `json:"protocol,omitempty"`
 }
 
 // NewGateway creates a new Gateway instance
@@ -143,6 +159,27 @@ func (g *Gateway) handleConnecting(ctx context.Context, e centrifuge.ConnectEven
 // handleConnect sets up per-client handlers
 func (g *Gateway) handleConnect(client *centrifuge.Client) {
 	transport := client.Transport()
+
+	// Get user name from client info
+	userName := g.getUserName(client)
+
+	// Write connect event to Redis
+	ctx := context.Background()
+	err := g.writeEventToStream(ctx, StreamMessage{
+		ID:        uuid.New().String(),
+		Type:      EventTypeConnect,
+		Channel:   "$connections",
+		UserID:    client.UserID(),
+		UserName:  userName,
+		ClientID:  client.ID(),
+		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+		Transport: transport.Name(),
+		Protocol:  string(transport.Protocol()),
+	})
+	if err != nil {
+		slog.Error("failed to write connect event", "error", err)
+	}
+
 	slog.Info("client connected",
 		"clientId", client.ID(),
 		"userId", client.UserID(),
@@ -177,6 +214,24 @@ func (g *Gateway) handleSubscribe(client *centrifuge.Client, e centrifuge.Subscr
 		slog.Warn("subscription rejected", "channel", channel, "userId", userID, "reason", "invalid_channel")
 		cb(centrifuge.SubscribeReply{}, centrifuge.ErrorPermissionDenied)
 		return
+	}
+
+	// Get user name from client info
+	userName := g.getUserName(client)
+
+	// Write subscribe event to Redis (routed to the channel's worker)
+	ctx := context.Background()
+	err := g.writeEventToStream(ctx, StreamMessage{
+		ID:        uuid.New().String(),
+		Type:      EventTypeSubscribe,
+		Channel:   channel,
+		UserID:    userID,
+		UserName:  userName,
+		ClientID:  client.ID(),
+		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		slog.Error("failed to write subscribe event", "error", err)
 	}
 
 	metrics.SubscribeTotal.WithLabelValues("success", "").Inc()
@@ -258,15 +313,7 @@ func (g *Gateway) handlePublish(client *centrifuge.Client, e centrifuge.PublishE
 	timestamp := time.Now().UTC()
 
 	// Get user name from client info
-	userName := "Anonymous"
-	if info := client.Info(); len(info) > 0 {
-		var userInfo struct {
-			Name string `json:"name"`
-		}
-		if json.Unmarshal(info, &userInfo) == nil && userInfo.Name != "" {
-			userName = userInfo.Name
-		}
-	}
+	userName := g.getUserName(client)
 
 	// Marshal raw data for storage
 	rawJSON, err := json.Marshal(data)
@@ -280,6 +327,7 @@ func (g *Gateway) handlePublish(client *centrifuge.Client, e centrifuge.PublishE
 	// Construct message payload
 	message := StreamMessage{
 		ID:        messageID,
+		Type:      EventTypePublish,
 		Channel:   channel,
 		WorkerID:  workerID,
 		UserID:    userID,
@@ -327,9 +375,65 @@ func (g *Gateway) handlePublish(client *centrifuge.Client, e centrifuge.PublishE
 // handleDisconnect cleans up on client disconnect
 func (g *Gateway) handleDisconnect(client *centrifuge.Client, e centrifuge.DisconnectEvent) {
 	metrics.WebSocketConnections.Dec()
+
+	// Get user name from client info
+	userName := g.getUserName(client)
+
+	// Write disconnect event to Redis
+	ctx := context.Background()
+	err := g.writeEventToStream(ctx, StreamMessage{
+		ID:        uuid.New().String(),
+		Type:      EventTypeDisconnect,
+		Channel:   "$connections",
+		UserID:    client.UserID(),
+		UserName:  userName,
+		ClientID:  client.ID(),
+		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+		Reason:    e.Disconnect.Reason,
+	})
+	if err != nil {
+		slog.Error("failed to write disconnect event", "error", err)
+	}
+
 	slog.Info("client disconnected",
 		"clientId", client.ID(),
 		"userId", client.UserID(),
 		"reason", e.Disconnect.Reason,
 	)
+}
+
+// getUserName extracts user name from client info
+func (g *Gateway) getUserName(client *centrifuge.Client) string {
+	userName := "Anonymous"
+	if info := client.Info(); len(info) > 0 {
+		var userInfo struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(info, &userInfo) == nil && userInfo.Name != "" {
+			userName = userInfo.Name
+		}
+	}
+	return userName
+}
+
+// writeEventToStream writes an event message to the appropriate worker stream
+func (g *Gateway) writeEventToStream(ctx context.Context, msg StreamMessage) error {
+	// Get worker for this channel
+	workerID, err := g.router.GetWorkerForChannel(ctx, msg.Channel)
+	if err != nil {
+		return err
+	}
+
+	msg.WorkerID = workerID
+	streamKey := routing.GetWorkerStreamKey(workerID)
+
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	_, err = g.redis.XAdd(ctx, streamKey, map[string]interface{}{
+		"payload": string(payload),
+	})
+	return err
 }

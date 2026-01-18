@@ -200,20 +200,40 @@ export class RealtimeWorker extends EventEmitter {
    * Handle incoming message from stream
    */
   private async handleMessage(message: Message): Promise<void> {
-    const channel = message.channel;
+    // Route based on message type
+    switch (message.type) {
+      case 'connect':
+        await this.emitClientConnect(message);
+        break;
 
-    // Check if this is a new channel
-    const { isNew, info } = this.channelTracker.activateIfNew(channel);
+      case 'disconnect':
+        await this.emitClientDisconnect(message);
+        break;
 
-    if (isNew) {
-      await this.emitChannelActive(channel, info);
+      case 'subscribe':
+        await this.emitClientSubscribe(message);
+        // Also track channel activation for subscribe events
+        if (message.channel) {
+          const { isNew, info } = this.channelTracker.activateIfNew(message.channel);
+          if (isNew) {
+            await this.emitChannelActive(message.channel, info);
+          }
+        }
+        break;
+
+      case 'publish':
+      default:
+        // Handle publish messages (original behavior)
+        if (message.channel) {
+          const { isNew, info } = this.channelTracker.activateIfNew(message.channel);
+          if (isNew) {
+            await this.emitChannelActive(message.channel, info);
+          }
+          this.channelTracker.recordMessage(message.channel);
+          await this.emitChannelMessage(message.channel, message);
+        }
+        break;
     }
-
-    // Update channel with message
-    this.channelTracker.recordMessage(channel);
-
-    // Emit message event
-    await this.emitChannelMessage(channel, message);
   }
 
   /**
@@ -256,6 +276,33 @@ export class RealtimeWorker extends EventEmitter {
     this.emit('channel:inactive', channel, info);
     try {
       await this.callbacks.onChannelInactive?.(channel, info);
+    } catch (err) {
+      this.emitError(err as Error);
+    }
+  }
+
+  private async emitClientConnect(message: Message): Promise<void> {
+    this.emit('client:connect', message);
+    try {
+      await this.callbacks.onClientConnect?.(message);
+    } catch (err) {
+      this.emitError(err as Error);
+    }
+  }
+
+  private async emitClientDisconnect(message: Message): Promise<void> {
+    this.emit('client:disconnect', message);
+    try {
+      await this.callbacks.onClientDisconnect?.(message);
+    } catch (err) {
+      this.emitError(err as Error);
+    }
+  }
+
+  private async emitClientSubscribe(message: Message): Promise<void> {
+    this.emit('client:subscribe', message);
+    try {
+      await this.callbacks.onClientSubscribe?.(message);
     } catch (err) {
       this.emitError(err as Error);
     }
