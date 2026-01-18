@@ -220,17 +220,18 @@ func (g *Gateway) handleSubscribe(client *centrifuge.Client, e centrifuge.Subscr
 	// Get user name from client info
 	userName := g.getUserName(client)
 
-	// Write subscribe event to Redis (routed to the channel's worker)
+	// Write subscribe event to Redis (routed by userId for user-level tracking)
 	ctx := context.Background()
+	userChannel := "user:" + userID
 	err := g.writeEventToStream(ctx, StreamMessage{
 		ID:        uuid.New().String(),
 		Type:      EventTypeSubscribe,
-		Channel:   channel,
+		Channel:   channel, // Original channel user subscribed to
 		UserID:    userID,
 		UserName:  userName,
 		ClientID:  client.ID(),
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-	})
+	}, userChannel) // Route by userId
 	if err != nil {
 		slog.Error("failed to write subscribe event", "error", err)
 	}
@@ -300,11 +301,12 @@ func (g *Gateway) handlePublish(client *centrifuge.Client, e centrifuge.PublishE
 		return
 	}
 
-	// Get worker for this channel
-	workerID, err := g.router.GetWorkerForChannel(ctx, channel)
+	// Route by userId for user-level tracking
+	userChannel := "user:" + userID
+	workerID, err := g.router.GetWorkerForChannel(ctx, userChannel)
 	if err != nil {
 		metrics.PublishTotal.WithLabelValues("error", "no_worker").Inc()
-		slog.Error("failed to get worker for channel", "channel", channel, "error", err)
+		slog.Error("failed to get worker for user", "userId", userID, "error", err)
 		cb(centrifuge.PublishReply{}, centrifuge.ErrorInternal)
 		return
 	}
@@ -325,11 +327,11 @@ func (g *Gateway) handlePublish(client *centrifuge.Client, e centrifuge.PublishE
 		return
 	}
 
-	// Construct message payload
+	// Construct message payload (channel is the original publish channel)
 	message := StreamMessage{
 		ID:        messageID,
 		Type:      EventTypePublish,
-		Channel:   channel,
+		Channel:   channel, // Original channel user published to
 		WorkerID:  workerID,
 		UserID:    userID,
 		UserName:  userName,
@@ -419,9 +421,16 @@ func (g *Gateway) getUserName(client *centrifuge.Client) string {
 }
 
 // writeEventToStream writes an event message to the appropriate worker stream
-func (g *Gateway) writeEventToStream(ctx context.Context, msg StreamMessage) error {
+// routeChannel is optional - if provided, it's used for routing instead of msg.Channel
+func (g *Gateway) writeEventToStream(ctx context.Context, msg StreamMessage, routeChannel ...string) error {
+	// Determine which channel to use for routing
+	channel := msg.Channel
+	if len(routeChannel) > 0 && routeChannel[0] != "" {
+		channel = routeChannel[0]
+	}
+
 	// Get worker for this channel
-	workerID, err := g.router.GetWorkerForChannel(ctx, msg.Channel)
+	workerID, err := g.router.GetWorkerForChannel(ctx, channel)
 	if err != nil {
 		return err
 	}
