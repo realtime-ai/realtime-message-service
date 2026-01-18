@@ -1,39 +1,40 @@
 version: '3.8'
 
 services:
-  # Main application: Centrifugo + Callback Service
-  app:
+  gateway:
     build: .
     ports:
-      - "8000:8000"  # Centrifugo WebSocket
-      - "3000:3000"  # Callback Service HTTP
+      - "8000:8000"  # WebSocket
+      - "3000:3000"  # HTTP API
+      - "2112:2112"  # Prometheus metrics
     environment:
       - REDIS_URL=redis://redis:6379
-      - CENTRIFUGO_REDIS_ADDRESS=redis:6379
-      - PORT=3000
       - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_HMAC_SECRET_KEY:-your-secret-key}
+      - WEBSOCKET_PORT=8000
+      - HTTP_PORT=3000
+      - METRICS_PORT=2112
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 3s
       retries: 3
-      start_period: 10s
+      start_period: 5s
 
-  # Redis (for development/testing only)
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
     restart: unless-stopped
 

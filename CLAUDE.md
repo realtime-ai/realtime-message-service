@@ -2,129 +2,100 @@
 
 ## Project Overview
 
-Centrifuge Realtime Message - A real-time messaging service combining Centrifugo WebSocket server with a callback handler service in a single Docker container.
+Centrifuge Realtime Message - A real-time messaging service using the Centrifuge library for Go.
 
 ## Architecture
 
-- **Centrifugo**: WebSocket server for real-time messaging (port 8000)
-- **Callback Service**: Express.js HTTP server for Centrifugo callbacks (port 3000)
-- **Redis**: External message storage via Redis Streams
-
-## Project Structure
+Single Go process with embedded WebSocket server using the [Centrifuge library](https://github.com/centrifugal/centrifuge).
 
 ```
-.
-├── Dockerfile           # Combined Docker image
-├── docker-compose.yml   # Development environment with Redis
-├── supervisord.conf     # Process management
-├── centrifugo/
-│   └── config.json      # Centrifugo configuration
-├── src/
-│   ├── index.ts         # Express server entry
-│   ├── redis.ts         # Redis client
-│   ├── config/
-│   │   └── partition.ts # Partitioning logic
-│   └── handlers/
-│       ├── connect.ts   # Connect handler
-│       ├── subscribe.ts # Subscribe handler
-│       └── publish.ts   # Publish handler
-├── package.json
-└── tsconfig.json
+realtime-message-gateway/
+├── cmd/gateway/main.go     # Entry point
+├── internal/
+│   ├── config/             # Configuration
+│   ├── gateway/            # Centrifuge Node + event handlers
+│   ├── routing/            # Sticky channel routing
+│   ├── redis/              # Redis client
+│   └── metrics/            # Prometheus metrics
+├── go.mod
+├── Dockerfile
+└── docker-compose.yml
 ```
+
+**Ports:**
+- 8000: WebSocket (`/connection/websocket`)
+- 3000: HTTP API (`/health`)
+- 2112: Prometheus metrics (`/metrics`)
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `REDIS_URL` | Redis connection URL | `redis://localhost:6379` |
-| `PORT` | Callback service port | `3000` |
+| `WEBSOCKET_PORT` | WebSocket port | `8000` |
+| `HTTP_PORT` | HTTP API port | `3000` |
+| `METRICS_PORT` | Prometheus metrics port | `2112` |
 | `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` | JWT signing secret | Required |
+| `ROUTE_CACHE_TTL` | Local routing cache TTL | `30s` |
+| `MAX_TEXT_LENGTH` | Max message text length | `5000` |
 
 ## Development Commands
 
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build TypeScript
-npm run build
-
-# Type check
-npm run typecheck
-```
-
-## Docker Commands
-
-### Single Instance (Development)
+### Gateway
 
 ```bash
-# Build image
-docker build -t centrifuge-realtime-message .
+cd realtime-message-gateway
 
-# Run with docker-compose (includes Redis)
-docker-compose up -d
+# Build locally
+go build -o gateway ./cmd/gateway
 
-# Run standalone (external Redis)
-docker run -d \
-  -p 8000:8000 \
-  -p 3000:3000 \
-  -e REDIS_URL=redis://your-redis:6379 \
-  -e CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=secret \
-  centrifuge-realtime-message
+# Run locally
+./gateway
+
+# Run tests
+go test ./...
+
+# Docker
+docker-compose up -d --build
 ```
 
-### Multi-Instance (Production)
-
-Multiple Centrifugo instances can share messages through Redis Engine.
+### TypeScript Workers
 
 ```bash
-# Start multi-instance deployment (default: 2 Centrifugo + 2 Callback instances)
-docker-compose -f docker-compose.multi-instance.yml up -d
+# Start a worker with custom ID
+WORKER_ID=worker-0 npm run worker
 
-# Scale Centrifugo to 3 instances
-docker-compose -f docker-compose.multi-instance.yml up -d --scale centrifugo=3
-
-# Scale Callback service to 4 instances
-docker-compose -f docker-compose.multi-instance.yml up -d --scale callback=4
+# Start with auto-generated ID
+npm run worker
 ```
-
-**Architecture (Multi-Instance):**
-```
-                    ┌─────────────┐
-                    │   Nginx LB  │ :8000
-                    │  (ip_hash)  │
-                    └──────┬──────┘
-           ┌───────────────┼───────────────┐
-           ▼               ▼               ▼
-    ┌────────────┐  ┌────────────┐  ┌────────────┐
-    │Centrifugo 1│  │Centrifugo 2│  │Centrifugo 3│
-    └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
-          │               │               │
-          └───────────────┼───────────────┘
-                          │ Redis Engine
-                          ▼
-                   ┌─────────────┐
-                   │    Redis    │
-                   │  (Broker +  │
-                   │  Presence)  │
-                   └─────────────┘
-```
-
-**Key Features:**
-- **Redis Engine**: All Centrifugo instances share Pub/Sub, History, Presence via Redis
-- **Nginx ip_hash**: Same client IP always routes to same Centrifugo instance (WebSocket persistence)
-- **Horizontal Scaling**: Scale instances independently with `--scale` flag
 
 ## Key Endpoints
 
 | Port | Path | Description |
 |------|------|-------------|
-| 3000 | `/centrifugo/connect` | Handle client connections |
-| 3000 | `/centrifugo/subscribe` | Handle channel subscriptions |
-| 3000 | `/centrifugo/publish` | Handle message publishing |
-| 3000 | `/health` | Callback service health check |
 | 8000 | `/connection/websocket` | WebSocket endpoint |
-| 8000 | `/health` | Centrifugo health check |
+| 3000 | `/health` | Health check |
+| 2112 | `/metrics` | Prometheus metrics |
+
+## Channel Validation Rules
+
+- `chat` - Global chat channel (allowed for all users)
+- `chat:*` - Room channels (allowed for all users)
+- `user:{userId}` - User-specific channel (only allowed for matching user)
+
+## Code Maintenance Rules
+
+### Deprecated Code Cleanup
+
+**Critical Rule**: Do NOT keep deprecated code in the codebase.
+
+- **Never** comment out old code "just in case"
+- **Never** keep unused files, functions, or imports
+- **Always** delete obsolete code immediately
+- **Always** use git history to recover old code if needed
+- **Always** clean up imports, dependencies, and related files
+
+**Rationale**:
+- Git history preserves all code - no need to keep it "just in case"
+- Dead code increases maintenance burden and confusion
+- Clean codebase is easier to understand and navigate
