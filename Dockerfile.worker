@@ -1,0 +1,19 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Install tsx for running TypeScript
+RUN npm install -g tsx
+
+# Copy source files
+COPY lib/ ./lib/
+COPY examples/worker-simple.ts ./examples/
+
+# Run the worker
+CMD ["tsx", "examples/worker-simple.ts"]
