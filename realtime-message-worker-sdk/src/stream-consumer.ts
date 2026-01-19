@@ -1,5 +1,5 @@
 import type { Redis } from 'ioredis';
-import type { Message, Logger } from './types.js';
+import type { StreamEvent, Logger } from './types.js';
 
 export interface StreamConsumerConfig {
   redis: Redis;
@@ -37,10 +37,10 @@ export class StreamConsumer {
   }
 
   /**
-   * Start consuming messages from the stream
+   * Start consuming events from the stream
    * This method blocks until stop() is called
    */
-  async start(onMessage: (message: Message) => Promise<void>): Promise<void> {
+  async start(onMessage: (event: StreamEvent) => Promise<void>): Promise<void> {
     this.running = true;
     this.logger.info(`StreamConsumer started: ${this.streamKey}`);
 
@@ -99,16 +99,16 @@ export class StreamConsumer {
   }
 
   /**
-   * Parse message fields from Redis XREAD result
+   * Parse event fields from Redis XREAD result
    */
-  private parseMessage(fields: string[]): Message | null {
+  private parseMessage(fields: string[]): StreamEvent | null {
     const payloadIndex = fields.indexOf('payload');
     if (payloadIndex === -1 || payloadIndex + 1 >= fields.length) {
       return null;
     }
 
     try {
-      return JSON.parse(fields[payloadIndex + 1]) as Message;
+      return JSON.parse(fields[payloadIndex + 1]) as StreamEvent;
     } catch {
       return null;
     }

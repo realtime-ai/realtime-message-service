@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -120,7 +122,7 @@ func main() {
 		}
 	}()
 
-	// Start HTTP server (for health checks and future API endpoints)
+	// Start HTTP server (for health checks and API endpoints)
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -134,6 +136,57 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"healthy"}`))
+	})
+
+	// Channel presence API endpoint
+	httpMux.HandleFunc("/channels/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Parse channel name from path: /channels/{channel}/presence
+		path := r.URL.Path
+		const prefix = "/channels/"
+		const suffix = "/presence"
+
+		if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":"not found"}`))
+			return
+		}
+
+		channel := path[len(prefix) : len(path)-len(suffix)]
+		if channel == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"error":"channel name required"}`))
+			return
+		}
+
+		// Get presence info
+		users, err := gw.GetChannelPresence(channel)
+		if err != nil {
+			slog.Error("failed to get channel presence", "channel", channel, "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error":"failed to get presence"}`))
+			return
+		}
+
+		// Return response
+		w.Header().Set("Content-Type", "application/json")
+		response := struct {
+			Channel string                `json:"channel"`
+			Users   []gateway.PresenceInfo `json:"users"`
+			Count   int                   `json:"count"`
+		}{
+			Channel: channel,
+			Users:   users,
+			Count:   len(users),
+		}
+
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			slog.Error("failed to encode presence response", "error", err)
+		}
 	})
 
 	httpServer := &http.Server{

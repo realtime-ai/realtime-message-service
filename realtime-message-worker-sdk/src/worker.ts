@@ -6,6 +6,8 @@ import type {
   WorkerCallbacks,
   WorkerEvents,
   Message,
+  PresenceEvent,
+  StreamEvent,
   ChannelInfo,
   Logger,
 } from './types.js';
@@ -197,10 +199,25 @@ export class RealtimeWorker extends EventEmitter {
   }
 
   /**
-   * Handle incoming message from stream
+   * Handle incoming event from stream (message, join, or leave)
    */
-  private async handleMessage(message: Message): Promise<void> {
-    const channel = message.channel;
+  private async handleMessage(event: StreamEvent): Promise<void> {
+    const channel = event.channel;
+    const eventType = event.type || 'message'; // Default to message for backwards compatibility
+
+    // Handle presence events
+    if (eventType === 'join') {
+      await this.emitUserJoin(channel, event as PresenceEvent);
+      return;
+    }
+
+    if (eventType === 'leave') {
+      await this.emitUserLeave(channel, event as PresenceEvent);
+      return;
+    }
+
+    // Handle message events
+    const message = event as Message;
 
     // Check if this is a new channel
     const { isNew, info } = this.channelTracker.activateIfNew(channel);
@@ -256,6 +273,24 @@ export class RealtimeWorker extends EventEmitter {
     this.emit('channel:inactive', channel, info);
     try {
       await this.callbacks.onChannelInactive?.(channel, info);
+    } catch (err) {
+      this.emitError(err as Error);
+    }
+  }
+
+  private async emitUserJoin(channel: string, event: PresenceEvent): Promise<void> {
+    this.emit('presence:join', channel, event);
+    try {
+      await this.callbacks.onUserJoin?.(channel, event);
+    } catch (err) {
+      this.emitError(err as Error);
+    }
+  }
+
+  private async emitUserLeave(channel: string, event: PresenceEvent): Promise<void> {
+    this.emit('presence:leave', channel, event);
+    try {
+      await this.callbacks.onUserLeave?.(channel, event);
     } catch (err) {
       this.emitError(err as Error);
     }
