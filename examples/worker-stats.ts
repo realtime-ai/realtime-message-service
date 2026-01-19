@@ -9,11 +9,10 @@
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
 import {
-  ROUTING_KEYS,
   getWorkerStreamKey,
   registerWorker,
   unregisterWorker,
-} from '../lib/routing.js';
+} from '../realtime-message-worker-sdk/src/index.js';
 
 // Configuration
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
