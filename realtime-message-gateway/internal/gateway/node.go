@@ -3,8 +3,10 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/centrifugal/centrifuge"
@@ -16,12 +18,25 @@ import (
 	"realtime-message-gateway/internal/routing"
 )
 
+// connectionMeta stores metadata about a connection for metrics
+type connectionMeta struct {
+	connectTime time.Time
+	userID      string
+}
+
 // Gateway wraps Centrifuge node with business logic
 type Gateway struct {
 	node   *centrifuge.Node
 	config *config.Config
 	redis  *redis.Client
 	router *routing.Router
+
+	// Connection tracking for reconnection detection
+	connectionsMu   sync.RWMutex
+	connections     map[string]*connectionMeta // clientID -> meta
+	recentUsersMu   sync.RWMutex
+	recentUsers     map[string]time.Time // userID -> last disconnect time
+	reconnectWindow time.Duration        // Time window to consider as reconnect
 }
 
 // StreamMessage matches the TypeScript worker message format
@@ -48,15 +63,38 @@ func NewGateway(cfg *config.Config, redisClient *redis.Client) (*Gateway, error)
 	}
 
 	gw := &Gateway{
-		node:   node,
-		config: cfg,
-		redis:  redisClient,
-		router: routing.NewRouter(redisClient, cfg.RouteCacheTTL),
+		node:            node,
+		config:          cfg,
+		redis:           redisClient,
+		router:          routing.NewRouter(redisClient, cfg.RouteCacheTTL),
+		connections:     make(map[string]*connectionMeta),
+		recentUsers:     make(map[string]time.Time),
+		reconnectWindow: 60 * time.Second, // Consider reconnect if within 60 seconds
 	}
 
 	gw.setupHandlers()
 
+	// Start cleanup goroutine for old user entries
+	go gw.cleanupRecentUsers()
+
 	return gw, nil
+}
+
+// cleanupRecentUsers periodically removes old entries from recentUsers map
+func (g *Gateway) cleanupRecentUsers() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		g.recentUsersMu.Lock()
+		now := time.Now()
+		for userID, lastDisconnect := range g.recentUsers {
+			if now.Sub(lastDisconnect) > g.reconnectWindow*2 {
+				delete(g.recentUsers, userID)
+			}
+		}
+		g.recentUsersMu.Unlock()
+	}
 }
 
 // Node returns the underlying Centrifuge node
@@ -143,12 +181,44 @@ func (g *Gateway) handleConnecting(ctx context.Context, e centrifuge.ConnectEven
 // handleConnect sets up per-client handlers
 func (g *Gateway) handleConnect(client *centrifuge.Client) {
 	transport := client.Transport()
-	slog.Info("client connected",
-		"clientId", client.ID(),
-		"userId", client.UserID(),
-		"transport", transport.Name(),
-		"protocol", transport.Protocol(),
-	)
+	clientID := client.ID()
+	userID := client.UserID()
+
+	// Check if this is a reconnection
+	isReconnect := false
+	g.recentUsersMu.RLock()
+	if lastDisconnect, ok := g.recentUsers[userID]; ok {
+		if time.Since(lastDisconnect) < g.reconnectWindow {
+			isReconnect = true
+		}
+	}
+	g.recentUsersMu.RUnlock()
+
+	// Track connection metadata
+	g.connectionsMu.Lock()
+	g.connections[clientID] = &connectionMeta{
+		connectTime: time.Now(),
+		userID:      userID,
+	}
+	g.connectionsMu.Unlock()
+
+	// Record reconnection metric
+	if isReconnect {
+		metrics.ReconnectTotal.WithLabelValues("success").Inc()
+		slog.Info("client reconnected",
+			"clientId", clientID,
+			"userId", userID,
+			"transport", transport.Name(),
+			"protocol", transport.Protocol(),
+		)
+	} else {
+		slog.Info("client connected",
+			"clientId", clientID,
+			"userId", userID,
+			"transport", transport.Name(),
+			"protocol", transport.Protocol(),
+		)
+	}
 
 	// Subscribe handler
 	client.OnSubscribe(func(e centrifuge.SubscribeEvent, cb centrifuge.SubscribeCallback) {
@@ -326,10 +396,42 @@ func (g *Gateway) handlePublish(client *centrifuge.Client, e centrifuge.PublishE
 
 // handleDisconnect cleans up on client disconnect
 func (g *Gateway) handleDisconnect(client *centrifuge.Client, e centrifuge.DisconnectEvent) {
+	clientID := client.ID()
+	userID := client.UserID()
+
 	metrics.WebSocketConnections.Dec()
+
+	// Get connection metadata and calculate duration
+	g.connectionsMu.Lock()
+	meta, ok := g.connections[clientID]
+	if ok {
+		duration := time.Since(meta.connectTime)
+		metrics.ConnectionDuration.Observe(duration.Seconds())
+		delete(g.connections, clientID)
+	}
+	g.connectionsMu.Unlock()
+
+	// Track user's last disconnect time for reconnection detection
+	g.recentUsersMu.Lock()
+	g.recentUsers[userID] = time.Now()
+	g.recentUsersMu.Unlock()
+
+	// Determine if this disconnect is likely to result in a reconnection
+	// Reconnect flag based on disconnect code
+	isReconnectable := e.Disconnect.Reconnect
+
+	// Record disconnect metrics with reason and code
+	metrics.DisconnectTotal.WithLabelValues(
+		e.Disconnect.Reason,
+		fmt.Sprintf("%d", e.Disconnect.Code),
+		fmt.Sprintf("%t", isReconnectable),
+	).Inc()
+
 	slog.Info("client disconnected",
-		"clientId", client.ID(),
-		"userId", client.UserID(),
+		"clientId", clientID,
+		"userId", userID,
 		"reason", e.Disconnect.Reason,
+		"code", e.Disconnect.Code,
+		"reconnect", isReconnectable,
 	)
 }

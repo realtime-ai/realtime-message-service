@@ -159,6 +159,54 @@ docker-compose logs -f
 - `chat:*` - 房间频道（所有用户可访问）
 - `user:{userId}` - 用户专属频道（仅匹配用户可访问）
 
+## WebSocket 重连机制
+
+### 客户端自动重连
+
+centrifuge-js 客户端内置自动重连，无需额外封装：
+
+```typescript
+import { Centrifuge } from 'centrifuge';
+
+const centrifuge = new Centrifuge('ws://localhost:8000/connection/websocket', {
+  data: { name: 'MyUser' },
+  minReconnectDelay: 500,      // 最小重连延迟 (ms)
+  maxReconnectDelay: 20000,    // 最大重连延迟 (ms)
+  maxServerPingDelay: 10000,   // 服务器 ping 超时
+});
+
+centrifuge.on('connecting', (ctx) => {
+  console.log('正在连接/重连...');
+});
+
+centrifuge.on('connected', (ctx) => {
+  console.log('已连接');
+});
+
+centrifuge.on('disconnected', (ctx) => {
+  console.log(`断开连接: ${ctx.reason}, 自动重连: ${ctx.reconnect}`);
+});
+
+centrifuge.connect();
+```
+
+### 服务端 Ping/Pong 保活
+
+| 参数 | 环境变量 | 默认值 | 说明 |
+|------|----------|--------|------|
+| Ping 间隔 | `WS_PING_INTERVAL` | `25s` | 服务器发送 PING 的间隔 |
+| Pong 超时 | `WS_PONG_TIMEOUT` | `10s` | 等待 PONG 响应的超时时间 |
+
+### 连接 Metrics
+
+服务端提供以下 Prometheus 指标用于监控连接状态：
+
+| 指标名称 | 类型 | 说明 |
+|----------|------|------|
+| `gateway_disconnect_total` | Counter | 断开连接总数，按原因和代码分类 |
+| `gateway_reconnect_total` | Counter | 重连次数 |
+| `gateway_connection_duration_seconds` | Histogram | 连接持续时间分布 |
+
 ## 项目结构
 
 ```
@@ -167,7 +215,7 @@ docker-compose logs -f
 │   ├── cmd/gateway/main.go         # 入口
 │   ├── internal/
 │   │   ├── config/                 # 配置
-│   │   ├── gateway/                # Centrifuge Node
+│   │   ├── gateway/                # Centrifuge Node + 连接监控
 │   │   ├── routing/                # Sticky Channel Routing
 │   │   ├── redis/                  # Redis 客户端
 │   │   └── metrics/                # Prometheus 指标

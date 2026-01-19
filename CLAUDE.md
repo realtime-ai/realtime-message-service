@@ -38,6 +38,8 @@ realtime-message-gateway/
 | `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` | JWT signing secret | Required |
 | `ROUTE_CACHE_TTL` | Local routing cache TTL | `30s` |
 | `MAX_TEXT_LENGTH` | Max message text length | `5000` |
+| `WS_PING_INTERVAL` | Server ping interval | `25s` |
+| `WS_PONG_TIMEOUT` | Pong response timeout | `10s` |
 
 ## Development Commands
 
