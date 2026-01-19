@@ -26,7 +26,11 @@ export { RealtimeWorker } from './worker.js';
 
 // Types
 export type {
+  EventType,
+  StreamEvent,
   Message,
+  PresenceEvent,
+  PresenceInfo,
   ChannelState,
   ChannelInfo,
   Logger,

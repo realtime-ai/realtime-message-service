@@ -1,17 +1,46 @@
 import type { Redis } from 'ioredis';
 
 /**
- * Message format matching Go gateway StreamMessage
+ * Event types from the gateway
  */
-export interface Message {
+export type EventType = 'message' | 'join' | 'leave';
+
+/**
+ * Base stream event from the gateway
+ */
+export interface StreamEvent {
   id: string;
+  type: EventType;
   channel: string;
   workerId: string;
   userId: string;
   userName: string;
-  text: string;
   timestamp: string;
+  clientId: string;
+}
+
+/**
+ * Message format matching Go gateway StreamMessage
+ */
+export interface Message extends StreamEvent {
+  type: 'message';
+  text: string;
   raw: string;
+}
+
+/**
+ * Presence event for user join/leave
+ */
+export interface PresenceEvent extends StreamEvent {
+  type: 'join' | 'leave';
+}
+
+/**
+ * User presence info
+ */
+export interface PresenceInfo {
+  userId: string;
+  userName: string;
   clientId: string;
 }
 
@@ -77,6 +106,8 @@ export interface WorkerEvents {
   'channel:active': (channel: string, info: ChannelInfo) => void;
   'channel:message': (channel: string, message: Message) => void;
   'channel:inactive': (channel: string, info: ChannelInfo) => void;
+  'presence:join': (channel: string, event: PresenceEvent) => void;
+  'presence:leave': (channel: string, event: PresenceEvent) => void;
   'worker:started': (workerId: string) => void;
   'worker:stopped': (workerId: string) => void;
   'worker:error': (error: Error) => void;
@@ -94,6 +125,12 @@ export interface WorkerCallbacks {
 
   /** Called when a channel becomes inactive (timeout or explicit removal) */
   onChannelInactive?: (channel: string, info: ChannelInfo) => void | Promise<void>;
+
+  /** Called when a user joins a channel */
+  onUserJoin?: (channel: string, event: PresenceEvent) => void | Promise<void>;
+
+  /** Called when a user leaves a channel */
+  onUserLeave?: (channel: string, event: PresenceEvent) => void | Promise<void>;
 
   /** Called when worker starts */
   onWorkerStarted?: (workerId: string) => void | Promise<void>;

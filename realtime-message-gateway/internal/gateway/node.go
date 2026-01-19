@@ -39,17 +39,34 @@ type Gateway struct {
 	reconnectWindow time.Duration        // Time window to consider as reconnect
 }
 
+// EventType defines the type of stream event
+type EventType string
+
+const (
+	EventTypeMessage EventType = "message"
+	EventTypeJoin    EventType = "join"
+	EventTypeLeave   EventType = "leave"
+)
+
 // StreamMessage matches the TypeScript worker message format
 type StreamMessage struct {
-	ID        string `json:"id"`
-	Channel   string `json:"channel"`
-	WorkerID  string `json:"workerId"`
-	UserID    string `json:"userId"`
-	UserName  string `json:"userName"`
-	Text      string `json:"text"`
-	Timestamp string `json:"timestamp"`
-	Raw       string `json:"raw"`
-	ClientID  string `json:"clientId"`
+	ID        string    `json:"id"`
+	Type      EventType `json:"type"`
+	Channel   string    `json:"channel"`
+	WorkerID  string    `json:"workerId"`
+	UserID    string    `json:"userId"`
+	UserName  string    `json:"userName"`
+	Text      string    `json:"text,omitempty"`
+	Timestamp string    `json:"timestamp"`
+	Raw       string    `json:"raw,omitempty"`
+	ClientID  string    `json:"clientId"`
+}
+
+// PresenceInfo represents a user in a channel
+type PresenceInfo struct {
+	UserID   string `json:"userId"`
+	UserName string `json:"userName"`
+	ClientID string `json:"clientId"`
 }
 
 // NewGateway creates a new Gateway instance
@@ -110,6 +127,44 @@ func (g *Gateway) Run() error {
 // Shutdown gracefully stops the node
 func (g *Gateway) Shutdown(ctx context.Context) error {
 	return g.node.Shutdown(ctx)
+}
+
+// GetChannelPresence returns the list of users currently subscribed to a channel
+func (g *Gateway) GetChannelPresence(channel string) ([]PresenceInfo, error) {
+	result, err := g.node.Presence(channel)
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]PresenceInfo, 0, len(result.Presence))
+	for clientID, clientInfo := range result.Presence {
+		userName := "Anonymous"
+		if len(clientInfo.ChanInfo) > 0 {
+			var info struct {
+				Name string `json:"name"`
+			}
+			if json.Unmarshal(clientInfo.ChanInfo, &info) == nil && info.Name != "" {
+				userName = info.Name
+			}
+		}
+		// Also try user info if chan info is empty
+		if userName == "Anonymous" && len(clientInfo.ClientInfo) > 0 {
+			var info struct {
+				Name string `json:"name"`
+			}
+			if json.Unmarshal(clientInfo.ClientInfo, &info) == nil && info.Name != "" {
+				userName = info.Name
+			}
+		}
+
+		users = append(users, PresenceInfo{
+			UserID:   clientInfo.UserID,
+			UserName: userName,
+			ClientID: clientID,
+		})
+	}
+
+	return users, nil
 }
 
 // logHandler converts Centrifuge logs to slog
@@ -225,6 +280,16 @@ func (g *Gateway) handleConnect(client *centrifuge.Client) {
 		g.handleSubscribe(client, e, cb)
 	})
 
+	// Subscribed handler - called after successful subscription, push join event
+	client.OnSubscribed(func(e centrifuge.SubscribedEvent) {
+		g.handleSubscribed(client, e)
+	})
+
+	// Unsubscribe handler - push leave event
+	client.OnUnsubscribe(func(e centrifuge.UnsubscribeEvent) {
+		g.handleUnsubscribe(client, e)
+	})
+
 	// Publish handler
 	client.OnPublish(func(e centrifuge.PublishEvent, cb centrifuge.PublishCallback) {
 		g.handlePublish(client, e, cb)
@@ -259,6 +324,85 @@ func (g *Gateway) handleSubscribe(client *centrifuge.Client, e centrifuge.Subscr
 			PushJoinLeave: true,
 		},
 	}, nil)
+}
+
+// handleSubscribed pushes join event to worker stream after successful subscription
+func (g *Gateway) handleSubscribed(client *centrifuge.Client, e centrifuge.SubscribedEvent) {
+	g.pushPresenceEvent(client, e.Channel, EventTypeJoin)
+}
+
+// handleUnsubscribe pushes leave event to worker stream
+func (g *Gateway) handleUnsubscribe(client *centrifuge.Client, e centrifuge.UnsubscribeEvent) {
+	g.pushPresenceEvent(client, e.Channel, EventTypeLeave)
+}
+
+// pushPresenceEvent sends a join/leave event to the worker stream
+func (g *Gateway) pushPresenceEvent(client *centrifuge.Client, channel string, eventType EventType) {
+	ctx := context.Background()
+
+	// Get worker for this channel
+	workerID, err := g.router.GetWorkerForChannel(ctx, channel)
+	if err != nil {
+		slog.Error("failed to get worker for presence event",
+			"channel", channel,
+			"eventType", eventType,
+			"error", err,
+		)
+		return
+	}
+
+	streamKey := routing.GetWorkerStreamKey(workerID)
+	messageID := uuid.New().String()
+	timestamp := time.Now().UTC()
+
+	// Get user name from client info
+	userName := "Anonymous"
+	if info := client.Info(); len(info) > 0 {
+		var userInfo struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(info, &userInfo) == nil && userInfo.Name != "" {
+			userName = userInfo.Name
+		}
+	}
+
+	// Construct presence event
+	event := StreamMessage{
+		ID:        messageID,
+		Type:      eventType,
+		Channel:   channel,
+		WorkerID:  workerID,
+		UserID:    client.UserID(),
+		UserName:  userName,
+		Timestamp: timestamp.Format(time.RFC3339Nano),
+		ClientID:  client.ID(),
+	}
+
+	// Marshal event payload
+	payload, err := json.Marshal(event)
+	if err != nil {
+		slog.Error("failed to marshal presence event", "error", err)
+		return
+	}
+
+	// Write to worker's stream
+	_, err = g.redis.XAdd(ctx, streamKey, map[string]interface{}{
+		"payload": string(payload),
+	})
+	if err != nil {
+		slog.Error("failed to write presence event to stream",
+			"streamKey", streamKey,
+			"error", err,
+		)
+		return
+	}
+
+	slog.Info("presence event published",
+		"eventType", eventType,
+		"channel", channel,
+		"userId", client.UserID(),
+		"workerId", workerID,
+	)
 }
 
 // isValidChannel checks if channel name is valid
@@ -350,6 +494,7 @@ func (g *Gateway) handlePublish(client *centrifuge.Client, e centrifuge.PublishE
 	// Construct message payload
 	message := StreamMessage{
 		ID:        messageID,
+		Type:      EventTypeMessage,
 		Channel:   channel,
 		WorkerID:  workerID,
 		UserID:    userID,
