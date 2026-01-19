@@ -163,43 +163,32 @@ docker-compose logs -f
 
 ### 客户端自动重连
 
-centrifuge-js 客户端内置了自动重连机制：
+centrifuge-js 客户端内置自动重连，无需额外封装：
 
 ```typescript
-import { createReconnectClient } from './lib/reconnect-client.js';
+import { Centrifuge } from 'centrifuge';
 
-const client = createReconnectClient({
-  url: 'ws://localhost:8000/connection/websocket',
+const centrifuge = new Centrifuge('ws://localhost:8000/connection/websocket', {
   data: { name: 'MyUser' },
   minReconnectDelay: 500,      // 最小重连延迟 (ms)
-  maxReconnectDelay: 30000,    // 最大重连延迟 (ms)
+  maxReconnectDelay: 20000,    // 最大重连延迟 (ms)
   maxServerPingDelay: 10000,   // 服务器 ping 超时
-  debug: true,
 });
 
-// 监听重连事件
-client.on('reconnecting', (ctx) => {
-  console.log(`正在重连，第 ${ctx.attempt} 次尝试，延迟 ${ctx.delay}ms`);
+centrifuge.on('connecting', (ctx) => {
+  console.log('正在连接/重连...');
 });
 
-client.on('reconnected', (ctx) => {
-  console.log(`重连成功，clientId: ${ctx.clientId}`);
+centrifuge.on('connected', (ctx) => {
+  console.log('已连接');
 });
 
-client.on('disconnected', (ctx) => {
-  console.log(`断开连接: ${ctx.reason}, reconnect: ${ctx.reconnect}`);
+centrifuge.on('disconnected', (ctx) => {
+  console.log(`断开连接: ${ctx.reason}, 自动重连: ${ctx.reconnect}`);
 });
 
-client.connect();
+centrifuge.connect();
 ```
-
-### 重连配置参数
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `minReconnectDelay` | 最小重连延迟 | `500ms` |
-| `maxReconnectDelay` | 最大重连延迟 | `20000ms` |
-| `maxServerPingDelay` | 服务器 ping 超时 | `10000ms` |
 
 ### 服务端 Ping/Pong 保活
 
@@ -208,28 +197,15 @@ client.connect();
 | Ping 间隔 | `WS_PING_INTERVAL` | `25s` | 服务器发送 PING 的间隔 |
 | Pong 超时 | `WS_PONG_TIMEOUT` | `10s` | 等待 PONG 响应的超时时间 |
 
-### 重连 Metrics
+### 连接 Metrics
 
-服务端提供以下 Prometheus 指标用于监控重连：
+服务端提供以下 Prometheus 指标用于监控连接状态：
 
 | 指标名称 | 类型 | 说明 |
 |----------|------|------|
 | `gateway_disconnect_total` | Counter | 断开连接总数，按原因和代码分类 |
 | `gateway_reconnect_total` | Counter | 重连次数 |
 | `gateway_connection_duration_seconds` | Histogram | 连接持续时间分布 |
-
-### 运行重连演示
-
-```bash
-# 启动重连演示（会显示连接状态和统计信息）
-npm run reconnect:demo
-
-# 自定义配置
-GATEWAY_URL=ws://localhost:8000/connection/websocket \
-CHANNEL=chat \
-USER_NAME=TestUser \
-npm run reconnect:demo
-```
 
 ## 项目结构
 
@@ -239,20 +215,18 @@ npm run reconnect:demo
 │   ├── cmd/gateway/main.go         # 入口
 │   ├── internal/
 │   │   ├── config/                 # 配置
-│   │   ├── gateway/                # Centrifuge Node + 重连处理
+│   │   ├── gateway/                # Centrifuge Node + 连接监控
 │   │   ├── routing/                # Sticky Channel Routing
 │   │   ├── redis/                  # Redis 客户端
-│   │   └── metrics/                # Prometheus 指标（含重连 metrics）
+│   │   └── metrics/                # Prometheus 指标
 │   ├── Dockerfile
 │   └── docker-compose.yml
 ├── lib/
-│   ├── routing.ts                  # 共享路由工具
-│   └── reconnect-client.ts         # WebSocket 重连客户端
+│   └── routing.ts                  # 共享路由工具
 ├── examples/
 │   ├── worker-simple.ts            # 简单 Worker
 │   ├── worker-stats.ts             # 带统计的 Worker
-│   ├── loadtest-websocket.ts       # WebSocket 压测
-│   └── reconnect-demo.ts           # 重连演示
+│   └── loadtest-websocket.ts       # WebSocket 压测
 ├── package.json
 └── CLAUDE.md                       # 项目上下文
 ```
@@ -292,9 +266,6 @@ npm run worker:stats                  # 带统计 Worker
 
 # 压测
 npm run loadtest:ws                   # WebSocket 压测
-
-# 重连演示
-npm run reconnect:demo                # 运行重连演示
 ```
 
 ## License
