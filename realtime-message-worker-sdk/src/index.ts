@@ -4,7 +4,7 @@
  * Event-driven worker SDK for consuming real-time channel messages
  * from the Realtime Message Gateway.
  *
- * @example
+ * @example Callback pattern
  * ```typescript
  * import { createWorker } from '@realtime-ai/realtime-message-worker-sdk';
  *
@@ -12,10 +12,31 @@
  *   redis: 'redis://localhost:6379',
  *   workerId: 'worker-1',
  * }, {
- *   onChannelActive: (channel) => console.log(`New: ${channel}`),
+ *   onChannelActive: (channel) => console.log(`Channel active: ${channel}`),
  *   onChannelMessage: (channel, msg) => console.log(`${channel}: ${msg.text}`),
- *   onChannelInactive: (channel) => console.log(`End: ${channel}`),
+ *   onChannelInactive: (channel) => console.log(`Channel inactive: ${channel}`),
+ *   onUserJoin: (channel, event) => console.log(`${event.userName} joined ${channel}`),
+ *   onUserLeave: (channel, event) => console.log(`${event.userName} left ${channel}`),
  * });
+ *
+ * await worker.start();
+ * ```
+ *
+ * @example EventEmitter pattern
+ * ```typescript
+ * import { createWorker } from '@realtime-ai/realtime-message-worker-sdk';
+ *
+ * const worker = createWorker({
+ *   redis: 'redis://localhost:6379',
+ *   workerId: 'worker-1',
+ * });
+ *
+ * worker.on('channel:active', (channel, info) => console.log(`Channel active: ${channel}`));
+ * worker.on('channel:message', (channel, msg) => console.log(`${channel}: ${msg.text}`));
+ * worker.on('channel:inactive', (channel, info) => console.log(`Channel inactive: ${channel}`));
+ * worker.on('presence:join', (channel, event) => console.log(`${event.userName} joined ${channel}`));
+ * worker.on('presence:leave', (channel, event) => console.log(`${event.userName} left ${channel}`));
+ * worker.on('worker:error', (error) => console.error('Worker error:', error));
  *
  * await worker.start();
  * ```
@@ -77,6 +98,12 @@ import type { WorkerConfig, WorkerCallbacks } from './types.js';
  *   },
  *   onChannelInactive: async (channel, info) => {
  *     console.log(`Channel ${channel} deactivated after ${info.messageCount} messages`);
+ *   },
+ *   onUserJoin: async (channel, event) => {
+ *     console.log(`${event.userName} (${event.userId}) joined ${channel}`);
+ *   },
+ *   onUserLeave: async (channel, event) => {
+ *     console.log(`${event.userName} (${event.userId}) left ${channel}`);
  *   },
  * });
  *
