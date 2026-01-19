@@ -1,5 +1,5 @@
 {
-  "name": "@realtime-ai/server-worker-sdk",
+  "name": "@realtime-ai/realtime-message-worker-sdk",
   "version": "1.0.0",
   "description": "Event-driven Worker SDK for realtime message processing with channel lifecycle callbacks",
   "type": "module",

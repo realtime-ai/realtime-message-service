@@ -1,12 +1,12 @@
 /**
- * @realtime-ai/server-worker-sdk
+ * @realtime-ai/realtime-message-worker-sdk
  *
  * Event-driven worker SDK for consuming real-time channel messages
  * from the Realtime Message Gateway.
  *
  * @example
  * ```typescript
- * import { createWorker } from '@realtime-ai/server-worker-sdk';
+ * import { createWorker } from '@realtime-ai/realtime-message-worker-sdk';
  *
  * const worker = createWorker({
  *   redis: 'redis://localhost:6379',
