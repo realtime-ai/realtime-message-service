@@ -1,0 +1,20 @@
+app = 'realtime-message-worker'
+primary_region = 'hkg'
+
+[build]
+  dockerfile = "Dockerfile.worker"
+
+[env]
+  WORKER_ID = "worker-fly-1"
+
+# Worker is a background process, no HTTP service needed
+# It only connects to Redis and processes messages
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+# Keep the worker running
+[processes]
+  app = "tsx examples/worker-simple.ts"
