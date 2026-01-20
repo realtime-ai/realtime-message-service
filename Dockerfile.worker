@@ -5,11 +5,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Install tsx for running TypeScript
-RUN npm install -g tsx
+# Install dependencies (including devDependencies for tsx)
+RUN npm ci && npm cache clean --force
 
 # Copy source files
 COPY lib/ ./lib/

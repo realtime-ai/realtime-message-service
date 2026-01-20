@@ -147,12 +147,12 @@ func (g *Gateway) GetChannelPresence(channel string) ([]PresenceInfo, error) {
 				userName = info.Name
 			}
 		}
-		// Also try user info if chan info is empty
-		if userName == "Anonymous" && len(clientInfo.ClientInfo) > 0 {
+		// Also try conn info if chan info is empty
+		if userName == "Anonymous" && len(clientInfo.ConnInfo) > 0 {
 			var info struct {
 				Name string `json:"name"`
 			}
-			if json.Unmarshal(clientInfo.ClientInfo, &info) == nil && info.Name != "" {
+			if json.Unmarshal(clientInfo.ConnInfo, &info) == nil && info.Name != "" {
 				userName = info.Name
 			}
 		}
@@ -280,10 +280,6 @@ func (g *Gateway) handleConnect(client *centrifuge.Client) {
 		g.handleSubscribe(client, e, cb)
 	})
 
-	// Subscribed handler - called after successful subscription, push join event
-	client.OnSubscribed(func(e centrifuge.SubscribedEvent) {
-		g.handleSubscribed(client, e)
-	})
 
 	// Unsubscribe handler - push leave event
 	client.OnUnsubscribe(func(e centrifuge.UnsubscribeEvent) {
@@ -324,11 +320,9 @@ func (g *Gateway) handleSubscribe(client *centrifuge.Client, e centrifuge.Subscr
 			PushJoinLeave: true,
 		},
 	}, nil)
-}
 
-// handleSubscribed pushes join event to worker stream after successful subscription
-func (g *Gateway) handleSubscribed(client *centrifuge.Client, e centrifuge.SubscribedEvent) {
-	g.pushPresenceEvent(client, e.Channel, EventTypeJoin)
+	// Push join event to worker stream after successful subscription
+	g.pushPresenceEvent(client, channel, EventTypeJoin)
 }
 
 // handleUnsubscribe pushes leave event to worker stream
@@ -562,8 +556,8 @@ func (g *Gateway) handleDisconnect(client *centrifuge.Client, e centrifuge.Disco
 	g.recentUsersMu.Unlock()
 
 	// Determine if this disconnect is likely to result in a reconnection
-	// Reconnect flag based on disconnect code
-	isReconnectable := e.Disconnect.Reconnect
+	// Codes < 3000 are typically reconnectable
+	isReconnectable := e.Disconnect.Code < 3000
 
 	// Record disconnect metrics with reason and code
 	metrics.DisconnectTotal.WithLabelValues(
